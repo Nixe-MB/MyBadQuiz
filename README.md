@@ -1,4 +1,4 @@
-# MyBadQuiz - Exam Reviewer v1.2
+# MyBadQuiz - Exam Reviewer v1.3
 A new collection of quizzes!
 
 This website is for educational purposes only.
@@ -22,6 +22,8 @@ Survival (3 lives, endless) · Weak Spots (smart review of questions you miss).
 **Also:** 50/50 lifelines · Ctrl+K (or /) command palette · Settings (4 color palettes, effects on/off, volume, text size, reset) ·
 downloadable PNG score card · animated circuit-board background · printable Library (Ctrl+P) · 4 more badges.
 Add a boss to a subject with `boss: { name: "...", icon: "👾" }` in its data file (optional).
+
+## What's inside
 
 <img width="1870" height="1017" alt="image" src="https://github.com/user-attachments/assets/ef2f3dab-46a9-4327-9e39-5db7aa468ab4" />
 

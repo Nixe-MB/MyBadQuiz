@@ -1,4 +1,4 @@
-# MyBadQuiz - Exam Reviewer v1.3
+# MyBadQuiz - Exam Reviewer v1.4
 A new collection of quizzes!
 
 This website is for educational purposes only.
@@ -28,14 +28,16 @@ Adds a new logo and favicon, an About page that explains it is for educational u
 
 ## What's inside
 
-<img width="1870" height="1017" alt="image" src="https://github.com/user-attachments/assets/ef2f3dab-46a9-4327-9e39-5db7aa468ab4" />
+<img width="1867" height="1007" alt="image" src="https://github.com/user-attachments/assets/66ed6bde-03ac-407a-9d69-62b6b1a4a67b" />
 
-<img width="1867" height="1012" alt="image" src="https://github.com/user-attachments/assets/b6b3a987-e866-405c-b6da-2f2db44e9737" />
+<img width="1855" height="1011" alt="image" src="https://github.com/user-attachments/assets/5cc0f9dc-6c8d-468c-a64b-74bc65a2e370" />
 
-<img width="1862" height="1016" alt="image" src="https://github.com/user-attachments/assets/4905c8ed-781a-4360-8435-2f75e86ab935" />
+<img width="1873" height="1008" alt="image" src="https://github.com/user-attachments/assets/7fc79a14-c489-47cc-98ed-affe291fff00" />
 
-<img width="1866" height="1012" alt="image" src="https://github.com/user-attachments/assets/af553614-4eb1-4da4-a246-9c476a2d5cae" />
+<img width="1858" height="1007" alt="image" src="https://github.com/user-attachments/assets/6dd0489c-b15e-419d-9577-21ca86e9d4e1" />
 
-<img width="1867" height="1012" alt="image" src="https://github.com/user-attachments/assets/4e5c8826-c169-48d5-9abc-e0f68c9efee7" />
+<img width="1855" height="1006" alt="image" src="https://github.com/user-attachments/assets/f2f16d13-86cb-4c10-9a61-4ef6dbcb410f" />
+
+<img width="1860" height="992" alt="image" src="https://github.com/user-attachments/assets/50ebf311-3b23-41e6-8dce-ce20bce662c6" />
 
 # THANKS AND GOODLUCK WITH YOUR EXAM

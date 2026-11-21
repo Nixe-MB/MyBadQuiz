@@ -38,16 +38,14 @@ Adds a new logo and favicon, an About page that explains it is for educational u
 
 ## What's inside
 
-<img width="1867" height="1007" alt="image" src="https://github.com/user-attachments/assets/66ed6bde-03ac-407a-9d69-62b6b1a4a67b" />
+<img width="1876" height="1012" alt="image" src="https://github.com/user-attachments/assets/2f1494df-401f-421e-90b1-ba5e991f3f74" />
 
-<img width="1855" height="1011" alt="image" src="https://github.com/user-attachments/assets/5cc0f9dc-6c8d-468c-a64b-74bc65a2e370" />
+<img width="1868" height="1001" alt="image" src="https://github.com/user-attachments/assets/f990bcc7-490d-4a9c-8437-b698d8b87906" />
 
-<img width="1873" height="1008" alt="image" src="https://github.com/user-attachments/assets/7fc79a14-c489-47cc-98ed-affe291fff00" />
+<img width="1862" height="1008" alt="image" src="https://github.com/user-attachments/assets/16ac2f5a-23b8-4dbf-9ca6-0c6866a2dd0f" />
 
-<img width="1858" height="1007" alt="image" src="https://github.com/user-attachments/assets/6dd0489c-b15e-419d-9577-21ca86e9d4e1" />
+<img width="1867" height="1008" alt="image" src="https://github.com/user-attachments/assets/d7aba7ef-8deb-4072-95d3-1f01e445e950" />
 
-<img width="1855" height="1006" alt="image" src="https://github.com/user-attachments/assets/f2f16d13-86cb-4c10-9a61-4ef6dbcb410f" />
-
-<img width="1860" height="992" alt="image" src="https://github.com/user-attachments/assets/50ebf311-3b23-41e6-8dce-ce20bce662c6" />
+<img width="1867" height="1012" alt="image" src="https://github.com/user-attachments/assets/3a0b4744-9b18-47dc-9a8e-8315e508e9e0" />
 
 # THANKS AND GOODLUCK WITH YOUR EXAM

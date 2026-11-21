@@ -28,7 +28,11 @@ window.FX = (() => {
     freeze: () => { tone(1800, 0, .4, 'sine', .07, 300); tone(2400, .05, .3, 'sine', .05, 600); },
     phase: () => [196, 185, 175, 165].forEach((f, i) => tone(f, i * .12, .25, 'sawtooth', .08)),
     go: () => { tone(880, 0, .15, 'square', .08); tone(1320, .12, .3, 'square', .08); },
-    beep: () => tone(660, 0, .1, 'square', .06)
+    beep: () => tone(660, 0, .1, 'square', .06),
+    coin: () => { tone(1320, 0, .08, 'square', .05); tone(1760, .07, .14, 'square', .05); },
+    claim: () => [660, 880, 1100, 1320].forEach((f, i) => tone(f, i * .06, .18, 'triangle', .07)),
+    equip: () => { tone(500, 0, .08, 'triangle', .07); tone(750, .06, .14, 'triangle', .07); },
+    freezeHit: () => { tone(900, 0, .3, 'sine', .07, 200); }
   };
   let nb = null;
   function noise(t0, d, v, hp) {
@@ -64,7 +68,8 @@ window.FX = (() => {
   let P = [], raf = 0;
   const cols = ['#4fd1c5', '#ffb347', '#ff6b6b', '#b08cff', '#3ddc97', '#ffffff'];
   function spawn(x, y, n, pw, g) {
-    if (calm) return;
+    if (calm || document.hidden) return;
+    n = Math.min(n, Math.max(6, 220 - P.length));
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, s = pw * (.4 + Math.random());
       P.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - pw * .7, r: 3 + Math.random() * 4, c: cols[i % 6], life: 1, rot: Math.random() * 6, vr: (Math.random() - .5) * .3, g });
@@ -100,6 +105,13 @@ window.FX = (() => {
     const c = e.target.closest && e.target.closest('.tilt');
     if (c && !c.contains(e.relatedTarget)) c.style.transform = '';
   });
+  /* ripple on buttons and cards (cheap, CSS-driven) */
+  document.addEventListener('pointerdown', e => {
+    if (calm) return; const t = e.target.closest && e.target.closest('.btn,.chip,.card,.pod,.opt');
+    if (!t) return; const r = t.getBoundingClientRect();
+    t.style.setProperty('--rx', e.clientX - r.left + 'px'); t.style.setProperty('--ry', e.clientY - r.top + 'px');
+    t.classList.remove('rip'); void t.offsetWidth; t.classList.add('rip'); setTimeout(() => t.classList.remove('rip'), 650);
+  }, { passive: true });
   /* generic click sound + mute button */
   document.addEventListener('click', e => { if (e.target.closest('.btn,.chip,nav button,.sw,.card,#theme,.dots i')) FX.sfx('click'); });
   const mb = document.getElementById('mute');
@@ -116,7 +128,7 @@ window.FX = (() => {
   const pk = Array.from({ length: 14 }, mk);
   (function loop() {
     requestAnimationFrame(loop);
-    if (calm || !ax) return;
+    if (calm || !ax || document.hidden) return;
     if (fr++ % 90 === 0) acc = getComputedStyle(document.documentElement).getPropertyValue('--c').trim() || acc;
     ax.clearRect(0, 0, W, H); ax.lineWidth = 2; ax.lineCap = 'round';
     pk.forEach((p, i) => {
@@ -132,6 +144,12 @@ window.FX = (() => {
   })();
   return {
     setVol(v) { vol = v; }, setCalm(c) { calm = !!c; }, setMusic(b) { musicOn = b; if (!b) FX.music(false); },
+    haptic(ms) { if (!calm && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } },
+    count(el, to, ms = 700, fmtFn) {
+      if (!el) return; if (calm) { el.textContent = fmtFn ? fmtFn(to) : to; return; }
+      const t0 = performance.now(), run = t => { const k = Math.min((t - t0) / ms, 1), v = Math.round(to * (1 - Math.pow(1 - k, 3))); el.textContent = fmtFn ? fmtFn(v) : v; if (k < 1 && el.isConnected) requestAnimationFrame(run); }; requestAnimationFrame(run);
+    },
+    countAll(root) { (root || document).querySelectorAll('[data-count]').forEach(el => FX.count(el, +el.dataset.count)); },
     music(on) {
       if (on && musicOn && !mus) { try { mus = { step: 0, next: ac().currentTime + .1, tempo: 132, lvl: 0, id: setInterval(sched, 80) }; } catch (e) { mus = null; } }
       else if (!on && mus) { clearInterval(mus.id); mus = null; }

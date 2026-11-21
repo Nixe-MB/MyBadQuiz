@@ -13,6 +13,8 @@ const store = {
 const fmt = s => `${s / 60 | 0}:${String(s % 60).padStart(2, '0')}`;
 const L = 'ABCDEF';
 const QB = window.QB = { onStop: [] };
+/* stubs: js/profile.js replaces these with the real thing */
+Object.assign(QB, { ev() {}, addCoins() {}, heroUser: () => '', questsHtml: () => '', bindQuests() {}, arenaBar: () => '', bossRecord() {}, me: () => ({ k: 'e', v: '🦊' }), avatar: a => '' });
 const sub = id => SUBJ.find(s => s.id === id);
 const bank = s => s.questions.map(([q, o, a, h]) => ({ q, o, a, h, sid: s.id }));
 const allQ = () => SUBJ.flatMap(bank);
@@ -163,9 +165,11 @@ function viewArena() {
     ['🛡️', 'Survival', `Three lives and endless questions. How far can you get? Best run: ${hi}.`, 'surv', '#3ddc97'],
     ['🎯', 'Weak Spots', weak ? `${weak} questions you missed or are still learning come first.` : 'Smart review serves the questions you miss. Play a few rounds first.', 'weak', '#b08cff']
   ];
-  app.innerHTML = `<section class="hero"><h1>The arena.</h1><p>Game modes beyond a regular quiz. Every mode feeds your mastery map and your XP.</p></section>
+  app.innerHTML = `<section class="hero"><h1>The arena.</h1><p>Game modes beyond a regular quiz. Every mode feeds your mastery map, XP and coins.</p></section>
+  ${QB.arenaBar()}${QB.questsHtml()}
   <div class="grid">${tiles.map((t, i) => `<button class="card tilt" data-m="${t[3]}" style="--c:${t[4]};animation-delay:${i * 90}ms"><span class="ic">${t[0]}</span><h3>${t[1]}</h3><span>${t[2]}</span><span class="go">Play</span></button>`).join('')}</div>`;
-  app.querySelectorAll('[data-m]').forEach(c => c.onclick = () => ({ boss: () => pickSubjects('Boss Arena', startBoss, true), race: () => QB.versus(), daily: startDaily, surv: () => pickSubjects('Survival', startSurvival), weak: startWeak })[c.dataset.m]());
+  QB.bindQuests();
+  app.querySelectorAll('[data-m]').forEach(c => c.onclick = () => ({ boss: () => QB.bossMenu(), race: () => QB.versus(), daily: startDaily, surv: () => pickSubjects('Survival', startSurvival), weak: startWeak })[c.dataset.m]());
 }
 function pickSubjects(title, fn, diff) {
   const pick = new Set(SUBJ.map(s => s.id)); let d = store.get('qb_diff', 'normal');
@@ -196,6 +200,9 @@ function startWeak() {
 
 /* ---------- shareable score card (PNG) ---------- */
 function shareCard(d) {
+  const a = QB.me(); if (a && a.k === 'i') { const im = new Image(); im.onload = () => shareCard2(d, im); im.onerror = () => shareCard2(d); im.src = a.v; } else shareCard2(d);
+}
+function shareCard2(d, img) {
   const W = 1200, H = 630, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
   const acc = getComputedStyle(document.documentElement).getPropertyValue('--c').trim() || '#4fd1c5', p = prog(), st = stats(), name = set().name || 'Player';
   const grade = d.pct >= 95 ? 'S' : d.pct >= 85 ? 'A' : d.pct >= 70 ? 'B' : d.pct >= 50 ? 'C' : 'D';
@@ -226,6 +233,10 @@ function shareCard(d) {
   x.strokeStyle = rc; x.beginPath(); x.arc(930, 290, 150, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * d.pct / 100); x.stroke();
   x.fillStyle = rc; x.font = '800 190px system-ui, sans-serif'; x.textAlign = 'center'; x.fillText(grade, 930, 355);
   x.font = '700 34px system-ui, sans-serif'; x.fillText(rank.toUpperCase(), 930, 495); x.textAlign = 'left';
+  // avatar
+  { const a = QB.me(), ax = 1100, ay = 80; x.save(); x.beginPath(); x.arc(ax, ay, 46, 0, Math.PI * 2); x.closePath(); x.fillStyle = 'rgba(255,255,255,.1)'; x.fill();
+    if (img) { x.clip(); x.drawImage(img, ax - 46, ay - 46, 92, 92); } else { x.font = '58px "Segoe UI Emoji","Apple Color Emoji",serif'; x.textAlign = 'center'; x.fillStyle = '#fff'; x.fillText(a.v || '🦊', ax, ay + 20); }
+    x.restore(); x.lineWidth = 5; x.strokeStyle = rc; x.beginPath(); x.arc(ax, ay, 48, 0, Math.PI * 2); x.stroke(); x.textAlign = 'left'; }
   // footer
   x.fillStyle = '#8fb0b5'; x.font = '500 22px system-ui, sans-serif'; x.textAlign = 'right'; x.fillText(`${name}  ·  ${new Date().toLocaleDateString()}  ·  for review and learning`, W - 50, 604); x.textAlign = 'left';
   c.toBlob(b => { if (!b) return; const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'mybadquiz-score.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast('Score card saved'); });
@@ -247,20 +258,25 @@ function viewSubjects() {
   const h = hist(), total = SUBJ.reduce((n, s) => n + s.questions.length, 0), p = prog(), xpIn = p.xp % 200, st = stats(), got = st.d[new Date().toISOString().slice(0, 10)] || 0, acc = st.t ? Math.round(st.c / st.t * 100) : 0;
   const cardHtml = (s, i, mix) => {
     const mine = mix ? h : h.filter(x => x.sid === s.id), best = mine.length ? Math.max(...mine.map(x => x.pct)) : null;
+    const mm = mas(), mt = mix ? total : s.questions.length, mc = mix ? masteredCount() : s.questions.filter(q => mlevel(mm[q[0]]) === 3).length;
     return `<button class="card tilt" data-id="${s.id}" style="--c:${s.color};animation-delay:${i * 90}ms">
       <span class="ic">${s.icon}</span><small>${esc(s.code)}${s.course ? ' · ' + esc(s.course) : ''} · ${s.questions.length} questions</small>
       <h3>${esc(s.title)}</h3><span>${esc(s.description)}</span>
-      <small>${best === null ? 'Not attempted yet' : `Best score: ${best}% · ${mine.length} attempt${mine.length > 1 ? 's' : ''}`}</small><span class="go">Start quiz</span></button>`;
+      <small>${best === null ? 'Not attempted yet' : `Best score: ${best}% · ${mine.length} attempt${mine.length > 1 ? 's' : ''}`}</small><div class="mini"><i style="width:${mc / mt * 100}%"></i></div><small>${mc}/${mt} mastered</small><span class="go">Start quiz</span></button>`;
   };
+  const rec = (() => { const m = mas(); return SUBJ.map(s => ({ s, r: s.questions.filter(q => mlevel(m[q[0]]) === 3).length / s.questions.length })).sort((a, b) => a.r - b.r)[0]; })();
   const mix = SUBJ.length > 1 ? { id: 'mix', code: 'ALL', title: 'Mega Mix', icon: '🌐', color: '#b08cff', description: 'Questions from every subject shuffled into one exam.', questions: { length: total } } : null;
   app.innerHTML = `
-  <section class="hero"><h1>Review smarter for your exams.</h1>
+  <section class="hero">${QB.heroUser()}<h1>Review smarter for your exams.</h1>
   <p>Pick a subject card, choose your rules, and test yourself. Every answer can be found in the handouts.</p>
-  <div class="stats"><span class="pill"><b>${SUBJ.length}</b> subjects</span><span class="pill"><b>${total}</b> questions</span><span class="pill">Level <b>${lvl(p.xp)}</b></span><span class="pill">Day streak <b>${dayStreak()}</b> ${dayStreak() ? '🔥' : ''}</span>${st.t ? `<span class="pill">Accuracy <b>${acc}%</b></span>` : ''}</div>
+  <div class="stats"><span class="pill"><b data-count="${SUBJ.length}">${SUBJ.length}</b> subjects</span><span class="pill"><b data-count="${total}">${total}</b> questions</span><span class="pill">Level <b data-count="${lvl(p.xp)}">${lvl(p.xp)}</b></span><span class="pill">Day streak <b>${dayStreak()}</b> ${dayStreak() ? '🔥' : ''}</span>${st.t ? `<span class="pill">Accuracy <b>${acc}%</b></span>` : ''}</div>
+  ${rec ? `<button class="rec" id="rec">🎯 Suggested next: <b>${esc(rec.s.code)}</b> is your least mastered subject (${Math.round(rec.r * 100)}%). Start a practice round →</button>` : ''}
   <div class="goal"><span>Daily goal: <b>${Math.min(got, 20)}/20</b> questions${got >= 20 ? ' ✅' : ''}</span><div class="mini"><i style="width:${Math.min(got / 20, 1) * 100}%"></i></div></div>
   <div class="xp" title="${xpIn}/200 XP to next level"><i style="width:0" data-w="${xpIn / 2}"></i></div></section>
   <div class="grid">${SUBJ.map((s, i) => cardHtml(s, i)).join('')}${mix ? cardHtml(mix, SUBJ.length, true) : ''}
   <div class="card add" style="animation-delay:${(SUBJ.length + 1) * 90}ms"><h3>More subjects soon</h3><small>Add a file in /data to create a new card.</small></div></div>`;
+  const rb = $('#rec'); if (rb) rb.onclick = () => start([rec.s.id], { ...O, auto: cfg.auto }, 'practice');
+  if (FX.countAll) FX.countAll(app);
   requestAnimationFrame(() => setTimeout(() => { const x = $('.xp i'); if (x) x.style.width = x.dataset.w + '%'; }, 80));
   app.querySelectorAll('.card[data-id]').forEach(c => c.onclick = () => setup(c.dataset.id === 'mix' ? SUBJ.map(s => s.id) : [c.dataset.id], 'quiz'));
 }
@@ -344,7 +360,7 @@ function runCards(deck) {
     <div class="face back"><small>Answer</small><h2>${esc(q.o[q.a])}</h2><small>📖 ${esc(q.h)}</small></div></div></div>
     <div class="nav2"><div><button class="btn ghost" id="fl">Flip (Space)</button></div><div><button class="btn ghost" id="mi">✗ Missed</button><button class="btn" id="kn">✓ Knew it</button></div></div></div>`;
     const flip = () => { $('#fc').classList.toggle('flip'); FX.sfx('flip'); };
-    const ans = ok => { ok ? known++ : miss.push(q); FX.sfx(ok ? 'ok' : 'bad'); i++; paint(); };
+    const ans = ok => { QB.ev('card'); ok ? known++ : miss.push(q); FX.sfx(ok ? 'ok' : 'bad'); i++; paint(); };
     FC = { flip, ans };
     $('#fc').onclick = flip; $('#fl').onclick = flip; $('#kn').onclick = () => ans(true); $('#mi').onclick = () => ans(false);
   };
@@ -520,7 +536,7 @@ function pick(p) {
   if (boss) { if (ok) { Q.bhp--; Q.fx = 'hit'; } else { Q.lives--; Q.fx = 'hurt'; } }
   if (surv && !ok) { Q.lives--; Q.fx = 'hurt'; }
   inst ? FX.sfx(ok ? 'ok' : 'bad') : FX.sfx('click');
-  addXP(ok ? 10 : 2);
+  addXP(ok ? 10 : 2); QB.ev('answer'); if (ok) QB.ev('correct'); QB.ev('streak', Q.streak);
   renderQ();
   const el = $('.opt.ok'); if (ok && el && inst) { const r = el.getBoundingClientRect(); FX.burst(r.left + 40, r.top + r.height / 2); }
   if (Q.mode !== 'quiz' && ok && Q.streak % 5 === 0) { FX.sfx('level'); toast('🔥 ' + Q.streak + ' in a row!'); FX.confetti(); }
@@ -556,10 +572,12 @@ function finish() {
   const heading = boss ? (won ? 'Victory!' : 'Defeated') : Q.mode === 'survival' ? 'Run over' : Q.mode === 'practice' ? 'Practice summary' : 'Quiz complete';
   if (Q.mode !== 'practice' && rows.length) {
     const h = [{ sid: mixed ? 'mix' : s.id, title: (Q.pool && !Q.daily ? 'Retry · ' : '') + title, score, total, pct, secs, date: Date.now() }, ...hist()].slice(0, 100);
+    QB.ev('quiz'); if (Q.mode === 'quiz' && total >= 10 && pct >= 80) QB.ev('quiz80'); QB.addCoins(pct >= 80 ? 20 : 8);
     store.set('qb_history', h); award('first'); if (h.length >= 5) award('five');
     if (Q.mode === 'quiz' && pct === 100 && total >= 5) award('perfect'); if (Q.mode === 'quiz' && pct === 100 && total >= 10 && !Q.usedHelp) award('nohint'); if (Q.mode === 'quiz' && mixed) award('mix');
     if (Q.mode === 'quiz' && total >= 25 && pct >= 80 && secs < 300) award('fast');
     if (won) { award('boss'); if (Q.flawless) award('flawless'); }
+    if (boss) { QB.bossRecord(Q.boss, won, Q.score); if (won) QB.ev('bossWin'); QB.addCoins(won ? 40 : 5); }
     if (Q.daily) { store.set('qb_daily', { date: new Date().toDateString(), score, total }); award('daily'); }
     if (Q.mode === 'survival' && Q.ok > store.get('qb_hi', 0)) { store.set('qb_hi', Q.ok); toast('🏆 New survival record: ' + Q.ok); }
     addXP(boss ? (won ? 80 : 10) : pct >= 90 ? 50 : pct >= 70 ? 25 : 10);
@@ -577,7 +595,7 @@ function finish() {
   ${rows.length ? `<div class="rev"><div class="chips"><button class="chip on" data-f="all">All (${rows.length})</button><button class="chip" data-f="bad">Missed (${wrong.length})</button></div><div id="rl">${rows.map((r, i) => rev(r, i)).join('')}</div></div>` : ''}</div>`;
   requestAnimationFrame(() => setTimeout(() => { const f = $('#fg'); if (f) f.style.strokeDashoffset = 565 - 565 * pct / 100; }, 60));
   const t0 = performance.now(); (function tick(t) { const k = Math.min((t - t0) / 1400, 1), n = $('#num'); if (n) n.textContent = Math.round(pct * (1 - Math.pow(1 - k, 3))) + '%'; if (n && k < 1) requestAnimationFrame(tick); })(t0);
-  $('#rt').onclick = () => { const q = Q; Q = null; q.mode === 'boss' ? QB.bossGame(q.ids, (q.extra || {}).diff) : start(q.ids, q.o, q.mode, q.pool, q.extra); };
+  $('#rt').onclick = () => { const q = Q; Q = null; q.mode === 'boss' ? QB.bossGame(q.ids, (q.extra || {}).diff, (q.extra || {}).bdef) : start(q.ids, q.o, q.mode, q.pool, q.extra); };
   const rw = $('#rw'); if (rw) rw.onclick = () => { const q = Q, p = wrong.map(r => ({ q: r.q.q, o: r.q.o, a: r.q.a, h: r.q.h, sid: r.q.sid })); Q = null; start(q.ids, { ...q.o, count: 0 }, q.mode, p, { title: q.title }); };
   $('#sc').onclick = () => shareCard({ title, pct, score, total, secs, heading, pts: Q.score, code: mixed ? 'MIX' : s.code });
   $('#hm').onclick = () => { Q = null; go('subjects'); };
@@ -613,8 +631,7 @@ document.addEventListener('keydown', e => {
 });
 
 Object.defineProperties(QB, { Q: { get: () => Q, set: v => { Q = v; } }, cfg: { get: () => cfg } });
-Object.assign(QB, { $, esc, shuf, store, fmt, L, SUBJ, sub, bank, allQ, toast, addXP, award, track, app, modal, close, sw, subjChips, go, start, stop, finish, lvl, prog, mlevel, mas, stats, FX, BADGES, hist, dayStreak });
+Object.assign(QB, { viewSubjects, O, $, esc, shuf, store, fmt, L, SUBJ, sub, bank, allQ, toast, addXP, award, track, app, modal, close, sw, subjChips, go, start, stop, finish, lvl, prog, mlevel, mas, stats, FX, BADGES, hist, dayStreak });
 $('#cfg').onclick = openSettings; $('#kb').onclick = palette;
 applySet();
-viewSubjects();
 })();

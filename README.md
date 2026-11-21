@@ -1,4 +1,4 @@
-# MyBadQuiz - Exam Reviewer v1.4
+# MyBadQuiz - Exam Reviewer v1.5
 A new collection of quizzes!
 
 This website is for educational purposes only.

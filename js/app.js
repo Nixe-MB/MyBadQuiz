@@ -53,37 +53,46 @@ function checkBadges() {
   if (masteredCount() >= 50) award('scholar');
   if (SUBJ.some(s => s.questions.every(q => mlevel(m[q[0]]) === 3))) award('master');
   const hh = hist(); if (SUBJ.length && SUBJ.every(s => hh.some(x => x.sid === s.id))) award('explorer');
+  const mk = Math.floor(masteredCount() / 10), mr = store.get('qb_mrew', 0); if (mk > mr) { store.set('qb_mrew', mk); QB.addCoins(20 * (mk - mr)); toast('🧠 ' + mk * 10 + ' questions mastered! +' + 20 * (mk - mr) + ' coins'); }
 }
-function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.append(t); setTimeout(() => t.remove(), 3200); }
+const toastQ = [];
+function toast(m) {
+  let box = $('#toasts'); if (!box) { box = document.createElement('div'); box.id = 'toasts'; box.setAttribute('aria-live', 'polite'); document.body.append(box); }
+  const last = box.lastElementChild; if ((last && last.textContent === m && Date.now() - (last._t || 0) < 1500) || toastQ.includes(m)) return;
+  if (box.children.length >= 3) { toastQ.push(m); return; }
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; t._t = Date.now(); box.append(t);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => { t.remove(); if (toastQ.length) toast(toastQ.shift()); }, 320); }, 3200);
+}
 function addXP(n) {
   const p = prog(), before = lvl(p.xp), day = new Date().toDateString();
   p.xp += n; if (!p.days.includes(day)) p.days = [...p.days, day].slice(-90);
   store.set('qb_prog', p);
-  if (lvl(p.xp) > before) { toast('⬆ Level ' + lvl(p.xp) + ' reached!'); FX.sfx('level'); }
+  if (lvl(p.xp) > before) { toast('⬆ Level ' + lvl(p.xp) + ' reached! +' + lvl(p.xp) * 10 + ' coins'); QB.addCoins(lvl(p.xp) * 10); FX.sfx('level'); }
   checkBadges();
 }
-function award(k) { const p = prog(); if (p.badges.includes(k)) return; p.badges.push(k); store.set('qb_prog', p); toast(BADGES[k][0] + ' Badge unlocked: ' + BADGES[k][1]); FX.sfx('level'); }
+function award(k) { const p = prog(); if (p.badges.includes(k)) return; p.badges.push(k); store.set('qb_prog', p); toast(BADGES[k][0] + ' Badge unlocked: ' + BADGES[k][1] + ' (+25 coins)'); QB.addCoins(25); FX.sfx('level'); }
 const dayStreak = () => { const d = new Set(prog().days), t = new Date(); let n = 0; if (!d.has(t.toDateString())) t.setDate(t.getDate() - 1); while (d.has(t.toDateString())) { n++; t.setDate(t.getDate() - 1); } return n; };
 const bm = () => new Set(store.get('qb_bm', []));
 function toggleBm(t) { const s = bm(); s.has(t) ? s.delete(t) : s.add(t); store.set('qb_bm', [...s]); FX.sfx('star'); if (s.size >= 5) award('saver'); return s.has(t); }
 const hist = () => store.get('qb_history', []);
-const stop = () => { clearInterval(timer); clearInterval(qTimer); timer = qTimer = null; QB.onStop.forEach(f => { try { f(); } catch (e) {} }); };
+const stop = () => { clearInterval(timer); clearInterval(qTimer); timer = qTimer = null; if (QB.wake) QB.wake(false); QB.onStop.forEach(f => { try { f(); } catch (e) {} }); };
 
 /* ---------- mastery tracking (per question) ---------- */
 const mas = () => store.get('qb_mas', {});
 function track(q, ok) { const m = mas(), r = m[q] || { s: 0, c: 0, w: 0 }; r.s++; if (ok) { r.c++; r.w = 0; } else r.w = 1; m[q] = r; store.set('qb_mas', m);
   const st = stats(), k = new Date().toISOString().slice(0, 10); st.t++; if (ok) st.c++; st.d[k] = (st.d[k] || 0) + 1;
-  const ks = Object.keys(st.d).sort(); while (ks.length > 120) delete st.d[ks.shift()]; store.set('qb_stats', st); }
+  const ks = Object.keys(st.d).sort(); while (ks.length > 120) delete st.d[ks.shift()]; store.set('qb_stats', st);
+  if (st.t % 50 === 0) { const r = 10 + (Math.random() * 50 | 0); QB.addCoins(r); toast('🎁 Mystery chest! +' + r + ' coins'); FX.sfx('coin'); } }
 const mlevel = r => !r ? 0 : r.w ? 1 : (r.c >= 2 && r.c / r.s >= .7) ? 3 : 2;
 const MC = ['var(--bd)', '#ff6b6b', '#ffb347', '#3ddc97'], MN = ['Unseen', 'Weak', 'Learning', 'Mastered'];
 const masteredCount = () => Object.values(mas()).filter(r => mlevel(r) === 3).length;
-function masteryMap() {
-  const m = mas();
-  return `<div class="mm">${SUBJ.map(s => {
-    const cells = s.questions.map(q => mlevel(m[q[0]])), cnt = [0, 1, 2, 3].map(l => cells.filter(x => x === l).length);
-    return `<div class="mrow" style="--c:${s.color}"><div class="mh"><b>${s.icon} ${esc(s.code)}</b><small>${cnt[3]} mastered · ${cnt[2]} learning · ${cnt[1]} weak · ${cnt[0]} unseen</small></div>
-    <div class="cells">${s.questions.map((q, i) => `<i data-s="${s.id}" data-i="${i}" style="background:${MC[cells[i]]};animation-delay:${i * 14}ms" title="${esc(q[0])} (${MN[cells[i]]})"></i>`).join('')}</div></div>`;
-  }).join('')}<div class="legend">${MN.map((n, i) => `<span><i style="background:${MC[i]}"></i>${n}</span>`).join('')}</div></div>`;
+function masteryMap(sid) {
+  const m = mas(), legend = `<div class="legend">${MN.map((n, i) => `<span><i style="background:${MC[i]}"></i>${n}</span>`).join('')}</div>`;
+  const info = sj => { const cells = sj.questions.map(q => mlevel(m[q[0]])); return { cells, cnt: [0, 1, 2, 3].map(l => cells.filter(x => x === l).length) }; };
+  if (!sid || sid === 'all') return `<div class="mm">${SUBJ.map(sj => { const { cnt } = info(sj), n = sj.questions.length; return `<button class="mrow brow" data-pick="${sj.id}" style="--c:${sj.color}"><div class="mh"><b>${sj.icon} ${esc(sj.code)} <small>${esc(sj.title)}</small></b><small>${cnt[3]} mastered · ${cnt[2]} learning · ${cnt[1]} weak · ${cnt[0]} unseen</small></div><div class="stack">${[3, 2, 1, 0].map(l => `<i style="width:${cnt[l] / n * 100}%;background:${MC[l]}"></i>`).join('')}</div></button>`; }).join('')}${legend}<p class="sub">Tap a subject (or use the filter above) to see every question as a square.</p></div>`;
+  const sj = sub(sid), { cells, cnt } = info(sj);
+  return `<div class="mm"><div class="mrow" style="--c:${sj.color}"><div class="mh"><b>${sj.icon} ${esc(sj.code)} <small>${esc(sj.title)}</small></b><small>${cnt[3]} mastered · ${cnt[2]} learning · ${cnt[1]} weak · ${cnt[0]} unseen</small></div>
+  <div class="cells">${sj.questions.map((q, i) => `<i data-s="${sj.id}" data-i="${i}" style="background:${MC[cells[i]]};animation-delay:${i * 10}ms" title="${esc(q[0])} (${MN[cells[i]]})"></i>`).join('')}</div></div>${legend}</div>`;
 }
 
 /* ---------- settings + palettes ---------- */
@@ -107,6 +116,7 @@ function openSettings() {
     <div class="row"><label>Follow system reduce-motion<small>Off by default. Turn on if animations bother you</small></label>${sw('respect', s.respect)}</div>
     <div class="row"><label>Sound volume</label><input type="range" id="vol" min="0" max="1" step=".1" value="${s.vol}"></div>
     <div class="row"><label>Text size</label><div class="chips">${[90, 100, 115, 130].map(n => `<button class="chip ${s.size === n ? 'on' : ''}" data-z="${n}">${n}%</button>`).join('')}</div></div>
+    <div class="row"><label>Install as an app<small>Works offline for studying (multiplayer needs internet)</small></label><button class="btn ghost" id="inst">Install</button></div>
     <div class="row"><label>Reset all data<small>History, XP, mastery, saved questions</small></label><button class="btn ghost" id="rst">Reset</button></div>
     <div class="acts"><button class="btn" id="ok">Done</button></div></div>`;
     const up = o => { store.set('qb_set', { ...set(), ...o }); applySet(); paint(); };
@@ -118,7 +128,8 @@ function openSettings() {
     $('#nm2').onchange = e => up({ name: e.target.value.trim().slice(0, 14) });
     $('#vol').oninput = e => { store.set('qb_set', { ...set(), vol: +e.target.value }); applySet(); };
     $('#vol').onchange = () => FX.sfx('ok');
-    $('#rst').onclick = () => { if (confirm('Erase ALL MyBadQuiz data on this device?')) { ['qb_history', 'qb_prog', 'qb_bm', 'qb_mas', 'qb_daily', 'qb_hi', 'qb_stats'].forEach(k => localStorage.removeItem(k)); toast('Data reset'); close(); go('subjects'); } };
+    $('#rst').onclick = () => { if (confirm('Erase ALL MyBadQuiz data on this device?')) { Object.keys(localStorage).filter(k => k.startsWith('qb_')).forEach(k => localStorage.removeItem(k)); toast('Data reset. Reloading…'); setTimeout(() => location.reload(), 600); } };
+    $('#inst').onclick = () => QB.install && QB.install();
     $('#ok').onclick = close;
   };
   modal.hidden = false; paint();
@@ -239,17 +250,22 @@ function shareCard2(d, img) {
     x.restore(); x.lineWidth = 5; x.strokeStyle = rc; x.beginPath(); x.arc(ax, ay, 48, 0, Math.PI * 2); x.stroke(); x.textAlign = 'left'; }
   // footer
   x.fillStyle = '#8fb0b5'; x.font = '500 22px system-ui, sans-serif'; x.textAlign = 'right'; x.fillText(`${name}  ·  ${new Date().toLocaleDateString()}  ·  for review and learning`, W - 50, 604); x.textAlign = 'left';
-  c.toBlob(b => { if (!b) return; const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'mybadquiz-score.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast('Score card saved'); });
+  c.toBlob(async b => {
+    if (!b) return;
+    if (d.share && navigator.share) { try { const f = new File([b], 'mybadquiz-score.png', { type: 'image/png' }); const data = { title: 'MyBadQuiz', text: `I scored ${d.pct}% (${d.score}/${d.total}) on ${d.title} in MyBadQuiz!` }; if (navigator.canShare && navigator.canShare({ files: [f] })) data.files = [f]; await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'mybadquiz-score.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast('Score card saved');
+  });
 }
 
 /* ---------- navigation ---------- */
 $('.brand').onclick = e => { e.preventDefault(); go('subjects'); };
 $('#nav').onclick = e => { const b = e.target.closest('button'); if (b) go(b.dataset.tab); };
 function go(t) {
-  if (Q && !Q.done && !confirm('Leave the current session? Your progress will be lost.')) return;
+  if (((Q && !Q.done) || (QB.busy && QB.busy())) && !confirm('Leave the current session? Your progress will be lost.')) return;
   stop(); Q = null; FC = null;
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  ({ subjects: viewSubjects, practice: viewPractice, arena: viewArena, cards: viewCards, library: viewLibrary, history: viewHistory, about: () => QB.viewAbout() })[t]();
+  const view = ({ subjects: viewSubjects, practice: viewPractice, arena: viewArena, cards: viewCards, library: viewLibrary, history: viewHistory, about: () => QB.viewAbout() })[t];
+  if (document.startViewTransition && document.documentElement.dataset.fx !== 'off') { try { document.startViewTransition(view); } catch (e) { view(); } } else view();
   scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -273,8 +289,10 @@ function viewSubjects() {
   ${rec ? `<button class="rec" id="rec">🎯 Suggested next: <b>${esc(rec.s.code)}</b> is your least mastered subject (${Math.round(rec.r * 100)}%). Start a practice round →</button>` : ''}
   <div class="goal"><span>Daily goal: <b>${Math.min(got, 20)}/20</b> questions${got >= 20 ? ' ✅' : ''}</span><div class="mini"><i style="width:${Math.min(got / 20, 1) * 100}%"></i></div></div>
   <div class="xp" title="${xpIn}/200 XP to next level"><i style="width:0" data-w="${xpIn / 2}"></i></div></section>
-  <div class="grid">${SUBJ.map((s, i) => cardHtml(s, i)).join('')}${mix ? cardHtml(mix, SUBJ.length, true) : ''}
+  ${SUBJ.length >= 5 ? '<input class="search" id="sf" placeholder="Filter subjects… (name, code or course)" aria-label="Filter subjects">' : ''}
+  <div class="grid" id="sg">${SUBJ.map((s, i) => cardHtml(s, i)).join('')}${mix ? cardHtml(mix, SUBJ.length, true) : ''}
   <div class="card add" style="animation-delay:${(SUBJ.length + 1) * 90}ms"><h3>More subjects soon</h3><small>Add a file in /data to create a new card.</small></div></div>`;
+  const sfi = $('#sf'); if (sfi) sfi.oninput = () => { const t = sfi.value.toLowerCase(); app.querySelectorAll('#sg .card[data-id]').forEach(c => { const sj = sub(c.dataset.id), hay = sj ? (sj.title + ' ' + sj.code + ' ' + sj.course).toLowerCase() : 'mega mix all'; c.style.display = hay.includes(t) ? '' : 'none'; }); };
   const rb = $('#rec'); if (rb) rb.onclick = () => start([rec.s.id], { ...O, auto: cfg.auto }, 'practice');
   if (FX.countAll) FX.countAll(app);
   requestAnimationFrame(() => setTimeout(() => { const x = $('.xp i'); if (x) x.style.width = x.dataset.w + '%'; }, 80));
@@ -307,7 +325,10 @@ function setup(ids, mode, pool) {
 }
 const close = () => modal.hidden = true;
 modal.onclick = e => { if (e.target === modal) close(); };
-const subjChips = pick => SUBJ.map(s => `<button class="chip ${pick.has(s.id) ? 'on' : ''}" style="--c:${s.color}" data-id="${s.id}">${s.icon} ${esc(s.code)}</button>`).join('');
+const DD = { open: false };
+const subjChips = pick => `<details class="dd" ${DD.open ? 'open' : ''}><summary>Subjects <b>${pick.size}/${SUBJ.length}</b></summary><div class="ddb"><div class="ddt"><button type="button" class="lnk" data-dd="all">Select all</button><button type="button" class="lnk" data-dd="none">Clear</button></div><div class="chips">${SUBJ.map(s => `<button class="chip ${pick.has(s.id) ? 'on' : ''}" style="--c:${s.color}" data-id="${s.id}">${s.icon} ${esc(s.code)}</button>`).join('')}</div></div></details>`;
+document.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('dd')) DD.open = e.target.open; }, true);
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-dd]'); if (!b) return; const dd = b.closest('.dd'), want = b.dataset.dd; [...dd.querySelectorAll('.chip[data-id]')].filter(c => want === 'all' ? !c.classList.contains('on') : c.classList.contains('on')).forEach(c => c.click()); });
 
 /* ---------- practice tab ---------- */
 function viewPractice() {
@@ -369,21 +390,23 @@ function runCards(deck) {
 
 /* ---------- library (search / saved) ---------- */
 function viewLibrary() {
-  let term = '', saved = false, sid = 'all', lv = -1;
-  app.innerHTML = `<section class="hero"><h1>Question library</h1><p>Search every question with its answer and handout reference. Tap the star to save a question.</p></section>
+  let term = '', sid = 'all', lv = -1, shown = 30;
+  app.innerHTML = `<section class="hero"><h1>Question library</h1><p>Search every question with its answer and handout reference. Star questions to save them, listen to them, or look the topic up online.</p></section>
   <input class="search" id="q" placeholder="Search questions, answers or topics…" aria-label="Search">
-  <div class="chips" id="fl" style="margin-bottom:14px"><button class="chip on" data-s="all">All</button>${SUBJ.map(s => `<button class="chip" data-s="${s.id}">${esc(s.code)}</button>`).join('')}<button class="chip" data-s="saved">★ Saved</button></div>
-  <div class="chips" id="ml" style="margin-bottom:14px"><button class="chip on" data-l="-1">Any mastery</button>${MN.map((n, i) => `<button class="chip" data-l="${i}">${n}</button>`).join('')}</div>
-  <div class="stats" style="margin:0 0 14px"><span class="pill" id="ct"></span><button class="btn ghost" id="pr">Practice these</button></div><div class="rev" id="ll" style="margin-top:0"></div>`;
-  const list = () => { const b = bm(), t = term.toLowerCase(), m = mas(); return allQ().filter(x => (sid === 'all' || x.sid === sid) && (!saved || b.has(x.q)) && (lv < 0 || mlevel(m[x.q]) === lv) && (x.q + ' ' + x.o.join(' ') + ' ' + x.h).toLowerCase().includes(t)); };
+  <div class="toolbar">${sel('ls', [['all', 'All subjects'], ['saved', '★ Saved only'], ...SUBJ.map(s => [s.id, s.icon + ' ' + s.code + ' · ' + s.title])], 'all')}${sel('lm', [['-1', 'Any mastery'], ...MN.map((n, i) => [String(i), n])], '-1')}<span class="pill" id="ct"></span><button class="btn ghost" id="pr">Practice these</button><button class="btn ghost" id="pp">🖨 Print</button></div>
+  <div class="rev" id="ll" style="margin-top:0"></div><div class="acts" style="justify-content:center" id="mw"></div>`;
+  const list = () => { const b = bm(), t = term.toLowerCase(), m = mas(); return allQ().filter(x => (sid === 'all' || (sid === 'saved' ? b.has(x.q) : x.sid === sid)) && (lv < 0 || mlevel(m[x.q]) === lv) && (x.q + ' ' + x.o.join(' ') + ' ' + x.h).toLowerCase().includes(t)); };
   const paint = () => {
     const l = list(), b = bm(), m = mas(); $('#ct').innerHTML = `<b>${l.length}</b> question${l.length === 1 ? '' : 's'}`;
-    $('#ll').innerHTML = l.length ? l.map((x, i) => `<div class="ri ok" style="animation-delay:${Math.min(i, 10) * 30}ms"><button class="star ${b.has(x.q) ? 'on' : ''}" data-q="${i}" aria-label="Save">★</button><span class="dot" style="background:${MC[mlevel(m[x.q])]}" title="${MN[mlevel(m[x.q])]}"></span><b>${esc(x.q)}</b><p>Answer: <b>${esc(x.o[x.a])}</b></p><p>📖 ${esc(x.h)}</p></div>`).join('') : '<div class="empty">Nothing found. Try another search, or star some questions first.</div>';
-    $('#ll').querySelectorAll('.star').forEach(s => s.onclick = () => { toggleBm(l[+s.dataset.q].q); paint(); });
+    $('#ll').innerHTML = l.length ? l.slice(0, shown).map((x, i) => `<div class="ri ok" style="animation-delay:${Math.min(i, 10) * 25}ms"><button class="star ${b.has(x.q) ? 'on' : ''}" data-q="${i}" aria-label="Save">★</button><span class="dot" style="background:${MC[mlevel(m[x.q])]}" title="${MN[mlevel(m[x.q])]}"></span><b>${esc(x.q)}</b><p>Answer: <b>${esc(x.o[x.a])}</b></p><p>📖 ${esc(x.h)} <span class="tag">${esc(sub(x.sid).code)}</span></p><p><button class="ico" data-wiki="${esc(x.o[x.a])}" data-ctx="${esc(x.q)}">📚 Learn more</button> <button class="ico" data-say="${esc(x.q + ' Answer: ' + x.o[x.a])}">🔊 Read</button></p></div>`).join('') : '<div class="empty">Nothing found. Try another search, or star some questions first.</div>';
+    $('#mw').innerHTML = l.length > shown ? `<button class="btn ghost" id="sm">Show ${Math.min(30, l.length - shown)} more (${l.length - shown} left)</button>` : '';
+    const sm = $('#sm'); if (sm) sm.onclick = () => { shown += 30; paint(); };
+    $('#ll').querySelectorAll('.star').forEach(st => st.onclick = () => { toggleBm(l[+st.dataset.q].q); paint(); });
   };
-  $('#q').oninput = e => { term = e.target.value; paint(); };
-  $('#fl').onclick = e => { const c = e.target.closest('.chip'); if (!c) return; saved = c.dataset.s === 'saved'; sid = saved ? 'all' : c.dataset.s; document.querySelectorAll('#fl .chip').forEach(x => x.classList.toggle('on', x === c)); paint(); };
-  $('#ml').onclick = e => { const c = e.target.closest('.chip'); if (!c) return; lv = +c.dataset.l; document.querySelectorAll('#ml .chip').forEach(x => x.classList.toggle('on', x === c)); paint(); };
+  $('#q').oninput = e => { term = e.target.value; shown = 30; paint(); };
+  $('#ls').onchange = e => { sid = e.target.value; shown = 30; paint(); };
+  $('#lm').onchange = e => { lv = +e.target.value; shown = 30; paint(); };
+  $('#pp').onclick = () => { shown = 9999; paint(); setTimeout(() => print(), 60); };
   $('#pr').onclick = () => { const l = list(); l.length ? start([...new Set(l.map(x => x.sid))], { count: 0, time: 0, sq: true, so: true, instant: true, auto: cfg.auto }, 'practice', l) : toast('Nothing to practice yet.'); };
   paint();
 }
@@ -404,7 +427,7 @@ function subjStats(h) {
   return rows ? `<h3>By subject</h3><div class="stats" style="margin:8px 0 22px">${rows}</div>` : '';
 }
 function showQ(sid, i) {
-  const s = sub(sid), q = s.questions[i], r = mas()[q[0]];
+  const s = sub(sid); if (!s || !s.questions[i]) return; const q = s.questions[i], r = mas()[q[0]];
   modal.hidden = false;
   modal.innerHTML = `<div class="sheet" style="--c:${s.color}"><span class="tag">${esc(s.code)} · ${MN[mlevel(r)]}</span><h2 style="font-size:1.25rem;margin:8px 0 12px">${esc(q[0])}</h2>
   <p><b>Answer:</b> ${esc(q[1][q[2]])}</p><p class="sub" style="margin-top:8px">📖 ${esc(q[3])}</p>${r ? `<p class="sub">Seen ${r.s} time${r.s > 1 ? 's' : ''}, ${r.c} correct.</p>` : '<p class="sub">Not attempted yet.</p>'}<div class="acts"><button class="btn" id="ok">Close</button></div></div>`;
@@ -412,35 +435,49 @@ function showQ(sid, i) {
 }
 
 /* ---------- history ---------- */
+const HS = { sid: 'all', tab: 'overview', n: 20 };
+const sel = (id, opts, cur) => `<select class="sel" id="${id}" aria-label="Filter">${opts.map(([v, t]) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
+function exportAll() {
+  const data = {}; Object.keys(localStorage).filter(k => k.startsWith('qb_')).forEach(k => { try { data[k] = JSON.parse(localStorage.getItem(k)); } catch (e) {} });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: 'MyBadQuiz', v: 2, data }, null, 1)], { type: 'application/json' })); a.download = 'mybadquiz-backup.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+function importAll(d) {
+  const src = d.data || { qb_history: d.history, qb_bm: d.bookmarks, qb_prog: d.progress }, G = k => store.get(k, undefined);
+  const seen = new Set(hist().map(x => x.date)); store.set('qb_history', [...hist(), ...(src.qb_history || []).filter(x => !seen.has(x.date))].sort((a, b) => b.date - a.date).slice(0, 100));
+  store.set('qb_bm', [...new Set([...bm(), ...(src.qb_bm || [])])]);
+  const o = prog(), n = src.qb_prog || {}; store.set('qb_prog', { xp: Math.max(o.xp, n.xp || 0), days: [...new Set([...o.days, ...(n.days || [])])], badges: [...new Set([...o.badges, ...(n.badges || [])])] });
+  const mm = mas(), nm = src.qb_mas || {}; Object.keys(nm).forEach(k => { if (!mm[k] || nm[k].s > mm[k].s) mm[k] = nm[k]; }); store.set('qb_mas', mm);
+  const st = stats(), ns = src.qb_stats; if (ns) { const d2 = { ...ns.d }; Object.keys(st.d).forEach(k => d2[k] = Math.max(d2[k] || 0, st.d[k])); store.set('qb_stats', { t: Math.max(st.t, ns.t || 0), c: Math.max(st.c, ns.c || 0), d: d2 }); }
+  if (src.qb_coins != null) store.set('qb_coins', Math.max(store.get('qb_coins', 0), src.qb_coins));
+  if (src.qb_own) { const lo = store.get('qb_own', {}); store.set('qb_own', { ship: [...new Set([...(lo.ship || []), ...(src.qb_own.ship || [])])], frame: [...new Set([...(lo.frame || []), ...(src.qb_own.frame || [])])] }); }
+  if (src.qb_boss) { const lb = store.get('qb_boss', {}); Object.keys(src.qb_boss).forEach(k => { const a = lb[k] || { w: 0, b: 0, p: 0 }, b = src.qb_boss[k]; lb[k] = { w: Math.max(a.w, b.w), b: Math.max(a.b, b.b), p: Math.max(a.p, b.p) }; }); store.set('qb_boss', lb); }
+  ['qb_set', 'qb_eq', 'qb_cfg', 'qb_theme', 'qb_diff', 'qb_hi'].forEach(k => { if (src[k] != null && G(k) === undefined) store.set(k, src[k]); });
+}
 function viewHistory() {
-  const h = hist(), p = prog(), avg = h.length ? Math.round(h.reduce((n, x) => n + x.pct, 0) / h.length) : 0;
-  app.innerHTML = `<section class="hero"><h1>Your history</h1><p>Every finished quiz is saved in this browser. Use export to back it up or move it to another device.</p>
-  <div class="stats"><span class="pill"><b>${h.length}</b> attempts</span><span class="pill">Average <b>${avg}%</b></span><span class="pill">Best <b>${h.length ? Math.max(...h.map(x => x.pct)) : 0}%</b></span><span class="pill"><b>${p.xp}</b> XP · Level <b>${lvl(p.xp)}</b></span></div></section>
-  ${spark(h)}${heat()}${subjStats(h)}<h3>Mastery map</h3>${masteryMap()}<h3>Badges</h3><div class="badges">${Object.entries(BADGES).map(([k, b], i) => `<div class="bd ${p.badges.includes(k) ? '' : 'lock'}" style="animation-delay:${i * 60}ms"><span>${b[0]}</span><b>${b[1]}</b><small>${b[2]}</small></div>`).join('')}</div>
-  ${h.length ? `<div class="hist">${h.map((x, i) => `<div class="hi" style="--c:${(sub(x.sid) || { color: '#b08cff' }).color};animation-delay:${Math.min(i, 12) * 50}ms">
+  const all = hist(), p = prog(), h = HS.sid === 'all' ? all : all.filter(x => x.sid === HS.sid);
+  const avg = h.length ? Math.round(h.reduce((n, x) => n + x.pct, 0) / h.length) : 0, tabs = [['overview', 'Overview'], ['mastery', 'Mastery map'], ['badges', 'Badges ' + p.badges.length + '/' + Object.keys(BADGES).length], ['attempts', 'Attempts ' + h.length]];
+  let body = '';
+  if (HS.tab === 'overview') body = `${spark(h)}${heat()}${subjStats(all)}`;
+  else if (HS.tab === 'mastery') body = masteryMap(HS.sid);
+  else if (HS.tab === 'badges') body = `<div class="badges">${Object.entries(BADGES).map(([k, b], i) => `<div class="bd ${p.badges.includes(k) ? '' : 'lock'}" style="animation-delay:${Math.min(i, 14) * 40}ms"><span>${b[0]}</span><b>${b[1]}</b><small>${b[2]}</small></div>`).join('')}</div>`;
+  else body = h.length ? `<div class="hist">${h.slice(0, HS.n).map((x, i) => `<div class="hi" style="--c:${(sub(x.sid) || { color: '#b08cff' }).color};animation-delay:${Math.min(i, 12) * 40}ms">
     <div class="pc">${x.pct}%</div><div class="grow"><b>${esc(x.title)}</b><br><small>${x.score}/${x.total} correct · ${fmt(x.secs)} · ${new Date(x.date).toLocaleString()}</small><div class="mini"><i style="width:${x.pct}%"></i></div></div>
-    <button class="btn ghost" data-r="${x.sid}">Retake</button><button class="btn ghost" data-d="${i}" aria-label="Delete">✕</button></div>`).join('')}</div>` : `<div class="empty">No attempts yet. Take a quiz from the Subjects tab and it will show up here.</div>`}
-  <div class="acts"><button class="btn ghost" id="ex">Export backup</button><button class="btn ghost" id="im">Import backup</button>${h.length ? '<button class="btn ghost" id="clr">Clear history</button>' : ''}<input type="file" id="fi" accept="application/json" hidden></div>`;
+    <button class="btn ghost" data-r="${x.sid}">Retake</button><button class="btn ghost" data-d="${x.date}" aria-label="Delete">✕</button></div>`).join('')}</div>${h.length > HS.n ? `<div class="acts" style="justify-content:center"><button class="btn ghost" id="more">Show ${Math.min(20, h.length - HS.n)} more</button></div>` : ''}` : `<div class="empty">No attempts here yet. Take a quiz and it will show up.</div>`;
+  app.innerHTML = `<section class="hero"><h1>Your history</h1><p>Everything is saved in this browser. Use export to back it up or move it to another device.</p>
+  <div class="stats"><span class="pill"><b>${h.length}</b> attempts</span><span class="pill">Average <b>${avg}%</b></span><span class="pill">Best <b>${h.length ? Math.max(...h.map(x => x.pct)) : 0}%</b></span><span class="pill"><b>${p.xp}</b> XP · Level <b>${lvl(p.xp)}</b></span></div></section>
+  <div class="toolbar">${sel('hs', [['all', 'All subjects'], ...SUBJ.map(s => [s.id, s.icon + ' ' + s.code + ' · ' + s.title])], HS.sid)}<div class="subtabs" role="tablist">${tabs.map(([k, t]) => `<button role="tab" class="${HS.tab === k ? 'on' : ''}" data-t="${k}">${t}</button>`).join('')}</div></div>
+  <div class="tabpane" id="tp">${body}</div>
+  <div class="acts"><button class="btn ghost" id="ex">Export backup</button><button class="btn ghost" id="im">Import backup</button>${all.length ? '<button class="btn ghost" id="clr">Clear history</button>' : ''}<input type="file" id="fi" accept="application/json" hidden></div>`;
+  $('#hs').onchange = e => { HS.sid = e.target.value; HS.n = 20; viewHistory(); };
+  app.querySelectorAll('.subtabs [data-t]').forEach(b => b.onclick = () => { HS.tab = b.dataset.t; viewHistory(); });
   app.querySelectorAll('.cells i').forEach(i => i.onclick = () => showQ(i.dataset.s, +i.dataset.i));
+  app.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { HS.sid = b.dataset.pick; viewHistory(); });
   app.querySelectorAll('[data-r]').forEach(b => b.onclick = () => setup(b.dataset.r === 'mix' ? SUBJ.map(s => s.id) : [b.dataset.r], 'quiz'));
-  app.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { const a = hist(); a.splice(+b.dataset.d, 1); store.set('qb_history', a); viewHistory(); });
+  app.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { store.set('qb_history', hist().filter(x => String(x.date) !== b.dataset.d)); viewHistory(); });
+  const mo = $('#more'); if (mo) mo.onclick = () => { HS.n += 20; viewHistory(); };
   const c = $('#clr'); if (c) c.onclick = () => { if (confirm('Delete all saved attempts?')) { store.set('qb_history', []); viewHistory(); } };
-  $('#ex').onclick = () => {
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ history: hist(), bookmarks: [...bm()], progress: prog() }, null, 1)], { type: 'application/json' }));
-    a.download = 'mybadquiz-backup.json'; a.click(); URL.revokeObjectURL(a.href);
-  };
-  $('#im').onclick = () => $('#fi').click();
-  $('#fi').onchange = e => {
-    const f = e.target.files[0]; if (!f) return; const r = new FileReader();
-    r.onload = () => { try {
-      const d = JSON.parse(r.result), seen = new Set(hist().map(x => x.date));
-      store.set('qb_history', [...hist(), ...(d.history || []).filter(x => !seen.has(x.date))].sort((a, b) => b.date - a.date).slice(0, 100));
-      store.set('qb_bm', [...new Set([...bm(), ...(d.bookmarks || [])])]);
-      const o = prog(), n = d.progress || {}; store.set('qb_prog', { xp: Math.max(o.xp, n.xp || 0), days: [...new Set([...o.days, ...(n.days || [])])], badges: [...new Set([...o.badges, ...(n.badges || [])])] });
-      toast('Backup imported'); viewHistory();
-    } catch { toast('That file is not a valid backup.'); } };
-    r.readAsText(f);
-  };
+  $('#ex').onclick = exportAll; $('#im').onclick = () => $('#fi').click();
+  $('#fi').onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { importAll(JSON.parse(r.result)); toast('Backup imported. Reloading…'); setTimeout(() => location.reload(), 700); } catch (err) { toast('That file is not a valid backup.'); } }; r.readAsText(f); };
 }
 
 /* ---------- quiz engine ---------- */
@@ -458,7 +495,7 @@ function start(ids, o, mode, pool, extra = {}) {
   Q = { ids, o, mode, pool: pool || null, extra, base: list, idx: 0, ans: [], hints: new Set(), gone: {}, ff: 2, t0: Date.now(), left: o.time * 60,
     streak: 0, best: 0, ok: 0, seen: 0, done: false, fresh: true, paused: false, lives: mode === 'boss' ? 5 : 3, bmax, bhp: bmax, qt: 30, ql: 30, fx: '', ...extra };
   Q.list = list.map(mkq);
-  runTimer();
+  runTimer(); if (QB.wake) QB.wake(true);
   if (mode === 'boss') qTimer = setInterval(qTick, 1000);
   document.querySelectorAll('#nav button').forEach(b => b.classList.remove('on'));
   renderQ();
@@ -501,7 +538,7 @@ function renderQ() {
   <div class="qtop"><span class="meta">${metaTxt}</span>
   <span style="display:flex;gap:8px;align-items:center">${plain && Q.o.time ? '<button class="btn ghost" id="pz" style="padding:6px 12px" aria-label="Pause">⏸</button>' : ''}${plain && Q.o.time ? `<span class="timer ${Q.left <= 60 ? 'warn' : ''}" id="tm">${fmt(Math.max(Q.left, 0))}</span>` : ''}</span></div>
   ${plain ? `<div class="bar"><i style="width:${(Q.idx / n) * 100}%" id="pb"></i></div>` : ''}
-  <div class="qcard ${fresh ? 'in' : ''}"><button class="star ${saved ? 'on' : ''}" id="bk" aria-label="Save question" title="Save (S)">★</button><span class="tag">${esc(s.code)}</span><h2>${esc(q.q)}</h2>
+  <div class="qcard ${fresh ? 'in' : ''}"><button class="star ${saved ? 'on' : ''}" id="bk" aria-label="Save question" title="Save (S)">★</button><button class="ico say" data-say="${esc(q.q + '. ' + q.ord.map((oi, p) => L[p] + '. ' + q.o[oi]).join('. '))}" aria-label="Read aloud" title="Read aloud">🔊</button><span class="tag">${esc(s.code)}</span><h2>${esc(q.q)}</h2>
   <div class="opts ${fresh ? 'fresh' : ''}">${q.ord.map((oi, p) => {
     let c = 'opt'; if (a === p) c += ' sel'; if (gone.includes(p)) c += ' gone';
     if (lock) { c += ' lock'; if (oi === q.a) c += ' ok'; else if (a === p) c += ' bad'; else c += ' dim'; }
@@ -560,6 +597,9 @@ function tryFinish() {
   finish();
 }
 
+document.addEventListener('visibilitychange', () => { if (document.hidden && Q && !Q.done && Q.mode === 'quiz' && Q.o.time && !Q.paused) pause(); });
+window.addEventListener('error', () => { const n = Date.now(); if (n - (window.__errT || 0) > 15000) { window.__errT = n; toast('Something glitched. Your progress is safe.'); } });
+
 /* ---------- results ---------- */
 function finish() {
   stop(); Q.done = true;
@@ -574,11 +614,11 @@ function finish() {
     const h = [{ sid: mixed ? 'mix' : s.id, title: (Q.pool && !Q.daily ? 'Retry · ' : '') + title, score, total, pct, secs, date: Date.now() }, ...hist()].slice(0, 100);
     QB.ev('quiz'); if (Q.mode === 'quiz' && total >= 10 && pct >= 80) QB.ev('quiz80'); QB.addCoins(pct >= 80 ? 20 : 8);
     store.set('qb_history', h); award('first'); if (h.length >= 5) award('five');
-    if (Q.mode === 'quiz' && pct === 100 && total >= 5) award('perfect'); if (Q.mode === 'quiz' && pct === 100 && total >= 10 && !Q.usedHelp) award('nohint'); if (Q.mode === 'quiz' && mixed) award('mix');
+    if (Q.mode === 'quiz' && pct === 100 && total >= 5) { award('perfect'); QB.addCoins(30); toast('💯 Perfect score bonus +30 coins'); } if (Q.mode === 'quiz' && pct === 100 && total >= 10 && !Q.usedHelp) award('nohint'); if (Q.mode === 'quiz' && mixed) award('mix');
     if (Q.mode === 'quiz' && total >= 25 && pct >= 80 && secs < 300) award('fast');
     if (won) { award('boss'); if (Q.flawless) award('flawless'); }
     if (boss) { QB.bossRecord(Q.boss, won, Q.score); if (won) QB.ev('bossWin'); QB.addCoins(won ? 40 : 5); }
-    if (Q.daily) { store.set('qb_daily', { date: new Date().toDateString(), score, total }); award('daily'); }
+    if (Q.daily) { store.set('qb_daily', { date: new Date().toDateString(), score, total }); award('daily'); QB.addCoins(20); }
     if (Q.mode === 'survival' && Q.ok > store.get('qb_hi', 0)) { store.set('qb_hi', Q.ok); toast('🏆 New survival record: ' + Q.ok); }
     addXP(boss ? (won ? 80 : 10) : pct >= 90 ? 50 : pct >= 70 ? 25 : 10);
   }
@@ -591,13 +631,14 @@ function finish() {
   <div class="ring"><svg viewBox="0 0 200 200" width="210" height="210"><circle class="bg" cx="100" cy="100" r="90"/><circle class="fg" id="fg" cx="100" cy="100" r="90"/></svg><div><span id="num">0%</span><small>${score} / ${total}</small></div></div>
   <p>${msg}</p>
   <div class="stats"><span class="pill">Correct <b>${score}</b></span><span class="pill">Wrong <b>${rows.filter(r => r.st === 'bad').length}</b></span><span class="pill">Skipped <b>${rows.filter(r => r.st === 'sk').length}</b></span><span class="pill">Time <b>${fmt(secs)}</b></span>${Q.score != null ? `<span class="pill">Score <b>${Q.score}</b></span>` : ''}</div>
-  <div class="acts"><button class="btn" id="rt">${boss ? 'Fight again' : 'Retry'}</button>${wrong.length && ['quiz', 'practice'].includes(Q.mode) ? '<button class="btn ghost" id="rw">' + (Q.mode === 'practice' ? 'Practice missed' : 'Retry wrong only') + '</button>' : ''}<button class="btn ghost" id="sc">Save score card</button><button class="btn ghost" id="hm">Back to subjects</button></div>
+  <div class="acts"><button class="btn" id="rt">${boss ? 'Fight again' : 'Retry'}</button>${wrong.length && ['quiz', 'practice'].includes(Q.mode) ? '<button class="btn ghost" id="rw">' + (Q.mode === 'practice' ? 'Practice missed' : 'Retry wrong only') + '</button>' : ''}<button class="btn ghost" id="sc">Save score card</button><button class="btn ghost" id="shr">Share</button><button class="btn ghost" id="hm">Back to subjects</button></div>
   ${rows.length ? `<div class="rev"><div class="chips"><button class="chip on" data-f="all">All (${rows.length})</button><button class="chip" data-f="bad">Missed (${wrong.length})</button></div><div id="rl">${rows.map((r, i) => rev(r, i)).join('')}</div></div>` : ''}</div>`;
   requestAnimationFrame(() => setTimeout(() => { const f = $('#fg'); if (f) f.style.strokeDashoffset = 565 - 565 * pct / 100; }, 60));
   const t0 = performance.now(); (function tick(t) { const k = Math.min((t - t0) / 1400, 1), n = $('#num'); if (n) n.textContent = Math.round(pct * (1 - Math.pow(1 - k, 3))) + '%'; if (n && k < 1) requestAnimationFrame(tick); })(t0);
   $('#rt').onclick = () => { const q = Q; Q = null; q.mode === 'boss' ? QB.bossGame(q.ids, (q.extra || {}).diff, (q.extra || {}).bdef) : start(q.ids, q.o, q.mode, q.pool, q.extra); };
   const rw = $('#rw'); if (rw) rw.onclick = () => { const q = Q, p = wrong.map(r => ({ q: r.q.q, o: r.q.o, a: r.q.a, h: r.q.h, sid: r.q.sid })); Q = null; start(q.ids, { ...q.o, count: 0 }, q.mode, p, { title: q.title }); };
-  $('#sc').onclick = () => shareCard({ title, pct, score, total, secs, heading, pts: Q.score, code: mixed ? 'MIX' : s.code });
+  const cd = { title, pct, score, total, secs, heading, pts: Q.score, code: mixed ? 'MIX' : s.code };
+  $('#sc').onclick = () => shareCard(cd); $('#shr').onclick = () => shareCard({ ...cd, share: true });
   $('#hm').onclick = () => { Q = null; go('subjects'); };
   app.querySelectorAll('[data-f]').forEach(c => c.onclick = () => {
     app.querySelectorAll('[data-f]').forEach(x => x.classList.toggle('on', x === c));
@@ -605,7 +646,7 @@ function finish() {
   });
 }
 const rev = (r, i) => `<div class="ri ${r.st}" style="animation-delay:${Math.min(i, 10) * 40}ms"><b>${r.st === 'ok' ? '✓' : r.st === 'sk' ? '–' : '✗'} ${esc(r.q.q)}</b>
-  <p>Your answer: <b>${r.a == null || r.a < 0 ? (r.a === -1 ? 'No answer (time up)' : 'Skipped') : esc(r.q.o[r.q.ord[r.a]])}</b></p>${r.st === 'ok' ? '' : `<p>Correct answer: <b>${esc(r.q.o[r.q.a])}</b></p>`}<p>📖 ${esc(r.q.h)}</p></div>`;
+  <p>Your answer: <b>${r.a == null || r.a < 0 ? (r.a === -1 ? 'No answer (time up)' : 'Skipped') : esc(r.q.o[r.q.ord[r.a]])}</b></p>${r.st === 'ok' ? '' : `<p>Correct answer: <b>${esc(r.q.o[r.q.a])}</b></p>`}<p>📖 ${esc(r.q.h)}</p><p><button class="ico" data-wiki="${esc(r.q.o[r.q.a])}" data-ctx="${esc(r.q.q)}">📚 Learn more</button> <button class="ico" data-say="${esc(r.q.q + ' Answer: ' + r.q.o[r.q.a])}">🔊 Read</button></p></div>`;
 
 /* ---------- keyboard shortcuts ---------- */
 document.addEventListener('keydown', e => {

@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MyBadQuiz – Exam Reviewer</title>
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<meta name="theme-color" content="#0a1a24">
 <meta name="description" content="MyBadQuiz: a free exam reviewer with quizzes, flashcards, boss battles and online races. For educational use.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -22,7 +25,7 @@
     <button data-tab="history">History</button>
     <button data-tab="about">About</button>
   </nav>
-  <div class="tools"><button id="pf" aria-label="Profile"></button><button id="kb" aria-label="Command palette (Ctrl+K)">⌕</button><button id="cfg" aria-label="Settings">⚙</button><button id="mute" aria-label="Toggle sound">🔊</button><button id="theme" aria-label="Toggle light/dark theme">☾</button></div>
+  <div class="tools"><span class="coinp" id="coinh" title="Your coins">🪙 <b>0</b></span><button id="pf" aria-label="Profile"></button><button id="kb" aria-label="Command palette (Ctrl+K)">⌕</button><button id="cfg" aria-label="Settings">⚙</button><button id="mute" aria-label="Toggle sound">🔊</button><button id="theme" aria-label="Toggle light/dark theme">☾</button></div>
 </header>
 <main id="app"></main>
 <footer class="foot">MyBadQuiz is a student-made study aid for educational use only. Not an official school product. Always verify answers with your handouts.</footer>
@@ -39,6 +42,8 @@
 <script src="js/fx.js"></script>
 <script src="js/app.js"></script>
 <script src="js/profile.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/bossart.js"></script>
 <script src="js/boss.js"></script>
 <script src="js/versus.js"></script>
 <script src="js/about.js"></script>

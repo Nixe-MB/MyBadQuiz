@@ -34,6 +34,7 @@ window.FX = (() => {
     equip: () => { tone(500, 0, .08, 'triangle', .07); tone(750, .06, .14, 'triangle', .07); },
     freezeHit: () => { tone(900, 0, .3, 'sine', .07, 200); }
   };
+  const lastS = {};
   let nb = null;
   function noise(t0, d, v, hp) {
     const c = ac(); if (!nb) { nb = c.createBuffer(1, c.sampleRate * .6, c.sampleRate); const a = nb.getChannelData(0); for (let i = 0; i < a.length; i++) a[i] = Math.random() * 2 - 1; }
@@ -118,30 +119,41 @@ window.FX = (() => {
   const paint = () => { if (mb) mb.textContent = mute ? '🔇' : '🔊'; };
   if (mb) mb.onclick = () => { mute = !mute; localStorage.setItem('qb_mute', mute ? '1' : '0'); paint(); if (!mute) S.click(); };
   paint();
-  /* ambient circuit packets travelling along the background grid */
+  /* smooth animated background: drifting glow orbs (mouse parallax) + data packets gliding along the grid */
   const amb = document.createElement('canvas'); amb.id = 'amb';
   amb.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0';
   document.body.prepend(amb);
-  const ax = amb.getContext('2d'), G = 44; let W = 0, H = 0, acc = '#4fd1c5', fr = 0;
-  const size = () => { W = amb.width = innerWidth; H = amb.height = innerHeight; }; size(); addEventListener('resize', size);
-  const mk = () => { const h = Math.random() < .5, sg = Math.random() < .5 ? 1 : -1; return { x: Math.round(Math.random() * W / G) * G, y: Math.round(Math.random() * H / G) * G, dx: h ? sg : 0, dy: h ? 0 : sg, v: .7 + Math.random() * 1.3, l: 50 + Math.random() * 70 }; };
-  const pk = Array.from({ length: 14 }, mk);
-  (function loop() {
+  const ax = amb.getContext('2d'), G = 44, K = .6; let W = 0, H = 0, acc = '#4fd1c5', fr = 0, mx = 0, my = 0, tx = 0, ty = 0, lastT = performance.now(), clock = 0;
+  const hexA = (hex, a) => { const n = parseInt(String(hex).replace('#', '').padEnd(6, '0').slice(0, 6), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+  const size = () => { W = amb.width = Math.ceil(innerWidth * K); H = amb.height = Math.ceil(innerHeight * K); };
+  size(); addEventListener('resize', size);
+  addEventListener('pointermove', e => { tx = e.clientX / innerWidth - .5; ty = e.clientY / innerHeight - .5; }, { passive: true });
+  const ORBS = [[.18, .22, 380, 0, .9, 1.1, .8, 0], [.82, .3, 340, 1, .7, .8, 1.1, 1.7], [.5, .88, 440, 2, .5, .6, .7, 3.1], [.08, .82, 280, 1, .8, 1.2, .9, 4.4], [.92, .9, 320, 0, .6, .9, 1.3, .8], [.55, .08, 300, 3, .4, .7, .6, 2.4]];
+  const mkp = () => { const h = Math.random() < .5, sg = Math.random() < .5 ? 1 : -1; return { x: Math.round(Math.random() * innerWidth / G) * G, y: Math.round(Math.random() * innerHeight / G) * G, dx: h ? sg : 0, dy: h ? 0 : sg, v: 26 + Math.random() * 34, l: 50 + Math.random() * 70, age: Math.random() * 3, life: 7 + Math.random() * 7 }; };
+  const pk = Array.from({ length: 14 }, mkp);
+  (function loop(now) {
     requestAnimationFrame(loop);
-    if (calm || !ax || document.hidden) return;
-    if (fr++ % 90 === 0) acc = getComputedStyle(document.documentElement).getPropertyValue('--c').trim() || acc;
-    ax.clearRect(0, 0, W, H); ax.lineWidth = 2; ax.lineCap = 'round';
-    pk.forEach((p, i) => {
-      const px = p.x, py = p.y; p.x += p.dx * p.v; p.y += p.dy * p.v;
-      const cross = p.dx ? Math.floor(px / G) !== Math.floor(p.x / G) : Math.floor(py / G) !== Math.floor(p.y / G);
-      if (cross && Math.random() < .3) { p.x = Math.round(p.x / G) * G; p.y = Math.round(p.y / G) * G; const sg = Math.random() < .5 ? 1 : -1; if (p.dx) { p.dx = 0; p.dy = sg; } else { p.dy = 0; p.dx = sg; } }
-      if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) { pk[i] = mk(); return; }
-      const g = ax.createLinearGradient(p.x - p.dx * p.l, p.y - p.dy * p.l, p.x, p.y);
-      g.addColorStop(0, 'transparent'); g.addColorStop(1, acc);
-      ax.globalAlpha = .55; ax.strokeStyle = g; ax.beginPath(); ax.moveTo(p.x - p.dx * p.l, p.y - p.dy * p.l); ax.lineTo(p.x, p.y); ax.stroke();
-      ax.globalAlpha = .9; ax.fillStyle = acc; ax.beginPath(); ax.arc(p.x, p.y, 2.6, 0, 6.3); ax.fill();
+    if (calm || !ax || document.hidden) { lastT = now; return; }
+    const dt = Math.min((now - lastT) / 1000, .05); lastT = now; clock += dt;
+    mx += (tx - mx) * Math.min(1, dt * 2.5); my += (ty - my) * Math.min(1, dt * 2.5);
+    if (fr++ % 120 === 0) acc = getComputedStyle(document.documentElement).getPropertyValue('--c').trim() || acc;
+    const light = document.documentElement.dataset.theme === 'light', cols = [acc, '#b08cff', '#ffb347', '#ff7aa2'];
+    ax.setTransform(1, 0, 0, 1, 0, 0); ax.clearRect(0, 0, W, H); ax.globalCompositeOperation = light ? 'source-over' : 'lighter';
+    ORBS.forEach(([bx, by, r, ci, dp, fx, fy, ph]) => {
+      const x = (bx + Math.sin(clock * fx * .12 + ph) * .09 + mx * dp * .06) * W, y = (by + Math.cos(clock * fy * .1 + ph) * .08 + my * dp * .06) * H, rr = r * K * (1 + Math.sin(clock * .25 + ph) * .07);
+      const g = ax.createRadialGradient(x, y, 0, x, y, rr); g.addColorStop(0, hexA(cols[ci], light ? .17 : .2)); g.addColorStop(1, hexA(cols[ci], 0)); ax.fillStyle = g; ax.fillRect(x - rr, y - rr, rr * 2, rr * 2);
     });
-  })();
+    ax.globalCompositeOperation = 'source-over'; ax.setTransform(K, 0, 0, K, 0, 0); ax.lineWidth = 2.2; ax.lineCap = 'round';
+    pk.forEach((p, i) => {
+      p.age += dt; const px = p.x, py = p.y; p.x += p.dx * p.v * dt; p.y += p.dy * p.v * dt;
+      const cross = p.dx ? Math.floor(px / G) !== Math.floor(p.x / G) : Math.floor(py / G) !== Math.floor(p.y / G);
+      if (cross && Math.random() < .28) { p.x = Math.round(p.x / G) * G; p.y = Math.round(p.y / G) * G; const sg = Math.random() < .5 ? 1 : -1; if (p.dx) { p.dx = 0; p.dy = sg; } else { p.dy = 0; p.dx = sg; } }
+      if (p.age > p.life || p.x < -90 || p.x > innerWidth + 90 || p.y < -90 || p.y > innerHeight + 90) { pk[i] = mkp(); pk[i].age = 0; return; }
+      const a = Math.min(p.age, p.life - p.age, 1.2) / 1.2 * (light ? .5 : .65), tl = p.l, g = ax.createLinearGradient(p.x - p.dx * tl, p.y - p.dy * tl, p.x, p.y);
+      g.addColorStop(0, hexA(acc, 0)); g.addColorStop(1, hexA(acc, a)); ax.strokeStyle = g; ax.beginPath(); ax.moveTo(p.x - p.dx * tl, p.y - p.dy * tl); ax.lineTo(p.x, p.y); ax.stroke();
+      ax.fillStyle = hexA(acc, Math.min(1, a * 1.5)); ax.beginPath(); ax.arc(p.x, p.y, 2.4, 0, 6.3); ax.fill();
+    });
+  })(performance.now());
   return {
     setVol(v) { vol = v; }, setCalm(c) { calm = !!c; }, setMusic(b) { musicOn = b; if (!b) FX.music(false); },
     haptic(ms) { if (!calm && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } },
@@ -155,7 +167,7 @@ window.FX = (() => {
       else if (!on && mus) { clearInterval(mus.id); mus = null; }
     },
     intensity(n) { if (mus) { mus.lvl = n; mus.tempo = 132 + n * 14; } },
-    sfx(n) { if (!mute && S[n]) { try { S[n](); } catch (e) {} } },
+    sfx(n) { if (mute || !S[n]) return; const now = performance.now(); if (lastS[n] && now - lastS[n] < 70) return; lastS[n] = now; try { S[n](); } catch (e) {} },
     confetti() { for (let i = 0; i < 5; i++) setTimeout(() => spawn(innerWidth * (.15 + .175 * i), innerHeight * .4, 45, 9, .28), i * 170); },
     burst(x, y) { spawn(x, y, 20, 5, .2); }
   };

@@ -16,11 +16,12 @@ QB.viewAbout = function () {
   <li><b>Profile:</b> pick an emoji avatar or upload your own photo, choose a name, and unlock ship skins and avatar frames.</li>
   <li><b>Cards:</b> flashcards, including weak-only decks.</li>
   <li><b>Library:</b> search every question, filter by mastery, save favorites and print a reviewer.</li>
-  <li><b>History:</b> score trend, study heatmap, mastery map, badges, export and import.</li></ul></div>
+  <li><b>History:</b> filter by subject, with tabs for overview, mastery map, badges and attempts; export and import everything.</li>
+  <li><b>Handy extras:</b> read questions aloud, look up topics on Wikipedia, share your score card, keep the screen awake, fullscreen boss fights, and install it as an app that works offline.</li></ul></div>
   <div class="panel"><h2>Online race and privacy</h2>
   <p>Your progress, history and settings are stored only in your own browser. There is no account and nothing is uploaded. Online Race connects players directly (peer to peer) through a free public connection service that only helps two browsers find each other. Only your display name and race answers are shared with the people in your room.</p></div>
   <div class="panel"><h2>Shortcuts</h2><ul class="kbd">
   <li><kbd>Ctrl</kbd>+<kbd>K</kbd> or <kbd>/</kbd> command palette</li><li><kbd>1</kbd>–<kbd>4</kbd> / <kbd>A</kbd>–<kbd>D</kbd> answer</li><li><kbd>H</kbd> hint · <kbd>F</kbd> 50/50 (quiz) or freeze (boss)</li><li><kbd>S</kbd> save question · <kbd>P</kbd> pause</li><li><kbd>←</kbd> <kbd>→</kbd> navigate · <kbd>Space</kbd> flip card / ultimate</li></ul></div>
   <div class="panel"><h2>For whoever hosts it</h2><p>Everything is plain HTML, CSS and JavaScript, so it runs on GitHub Pages with no build step. Add a subject by copying a file in <code>data/</code>, editing the questions, and adding one <code>&lt;script&gt;</code> line to <code>index.html</code>. The README explains the details.</p></div>
-  <p class="sub" style="text-align:center">MyBadQuiz v1.5 · made by students, for students. Study hard, and rest too.</p></div>`;
+  <p class="sub" style="text-align:center">MyBadQuiz v1.6 · made by students, for students. Study hard, and rest too.</p></div>`;
 };

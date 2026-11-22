@@ -34,7 +34,8 @@ async function link(code, host, h) {
   else peer.on('open', () => { const c = peer.connect('mbq-' + code, { reliable: true }); c.on('open', () => { wire(c); h.ready(peer.id, c.peer); }); });
   return { send: (id, m) => conns[id] && conns[id].open && conns[id].send(m), all: m => Object.values(conns).forEach(c => c.open && c.send(m)), close: () => { try { peer.destroy(); } catch (e) {} } };
 }
-const leave = () => { if (R) { clearInterval(R.g && R.g.tm); const l = R.link; R = null; l && l.close(); } FX.music(false); };
+QB.busy = () => !!(R && R.state === 'play');
+const leave = () => { if (QB.wake) QB.wake(false); if (R) { clearInterval(R.g && R.g.tm); const l = R.link; R = null; l && l.close(); } FX.music(false); };
 QB.onStop.push(() => { if (R) { clearInterval(R.g && R.g.tm); R.link && R.link.close(); R = null; } });
 const myName = () => QB.myName ? QB.myName() : 'Player';
 const myAv = () => QB.me ? QB.me() : { k: 'e', v: '🦊' };
@@ -100,7 +101,7 @@ function startGame() {
   const ps = Object.values(R.players), bl = QB.BOSS_LIST ? QB.BOSS_LIST() : [], b = bl[c.boss % Math.max(bl.length, 1)] || { name: 'Boss', icon: '👾' };
   R.bossMax = Math.max(8, Math.ceil(ps.length * c.n * .6)); R.hearts = Math.max(5, 3 + ps.length * 2);
   R.state = 'play'; R.order = []; ps.forEach(rst);
-  const go = { t: 'go', qs, cfg: c, boss: { name: b.name, icon: b.icon }, bossMax: R.bossMax, hearts: R.hearts };
+  const go = { t: 'go', qs, cfg: c, boss: { name: b.name, icon: b.icon, art: b.art, col: b.col }, bossMax: R.bossMax, hearts: R.hearts };
   R.link.all(go); begin(go);
 }
 function checkEnd() {
@@ -180,15 +181,23 @@ function begin(m) {
   R.c = c; R.boss = m.boss; R.bossMax = m.bossMax; R.hearts = m.hearts; R.state = 'play'; R.order = R.order || [];
   R.g = { list, i: 0, score: 0, correct: 0, wrong: 0, dmg: 0, heal: 0, streak: 0, inv: [], dbl: false, shield: false, frozen: 0, t0: Date.now(), qt: 0, picked: null, tm: null, gone: [], lastHp: m.bossMax };
   app.innerHTML = `<div class="quiz race"><div id="rh"></div><div class="rb" id="rb"></div><div id="rq"></div><div class="pus" id="ru"></div></div>`;
-  FX.sfx('go'); FX.music(true); FX.intensity(1); headUpdate(); boardUpdate(); question(); pusPaint();
+  if (QB.wake) QB.wake(true);
+  FX.sfx('go'); FX.music(true); FX.intensity(1); headInit(); headUpdate(); boardUpdate(); question(); pusPaint();
   if (!R.host) R.view = null;
 }
+function headInit() {
+  const el = $('#rh'); if (!el || !R || R.c.mode !== 'raid') return;
+  el.innerHTML = `<div class="raidhud"><canvas id="rbc"></canvas><div class="rinfo"><b>${esc(R.boss.name)}</b> <small id="rhp"></small><div class="hpbar"><i id="rbar" style="width:100%"></i></div><div class="hearts" id="rhr"></div></div></div>`;
+  R.art = window.BossArt ? BossArt.mount($('#rbc'), { art: R.boss.art || 'eye', col: R.boss.col || '#4fd1c5' }) : null; R.lastH = null;
+}
 function headUpdate() {
-  const el = $('#rh'); if (!el || !R || !R.c || R.c.mode !== 'raid') return;
+  if (!R || !R.c || R.c.mode !== 'raid' || !$('#rbar')) return;
   const t = R.team || { hp: R.bossMax, max: R.bossMax, hearts: R.hearts, H: R.hearts }, g = R.g;
-  const hit = g && t.hp < g.lastHp; if (g) g.lastHp = t.hp;
-  el.innerHTML = `<div class="hud"><div class="bossbox"><span class="boss ${hit ? 'hit' : ''} ${t.hp <= 0 ? 'dead' : ''}">${R.boss.icon}</span><div class="bhp"><b>${esc(R.boss.name)}</b> <small>${t.hp}/${t.max} HP</small><div class="hpbar"><i style="width:${t.hp / t.max * 100}%"></i></div></div></div>
-  <div class="hearts">${Array.from({ length: t.H }, (_, i) => `<span class="hrt ${i < t.hearts ? '' : 'lost'}">❤</span>`).join('')}</div></div>`;
+  if (g && t.hp < g.lastHp && R.art) R.art.hit(); if (g) g.lastHp = t.hp;
+  if (R.lastH != null && t.hearts < R.lastH && R.art) { R.art.atk(); FX.sfx('hurt'); }
+  R.lastH = t.hearts; if (t.hp <= 0 && R.art) R.art.kill();
+  $('#rbar').style.width = t.hp / t.max * 100 + '%'; $('#rhp').textContent = t.hp + '/' + t.max + ' HP';
+  $('#rhr').innerHTML = Array.from({ length: t.H }, (_, i) => `<span class="hrt ${i < t.hearts ? '' : 'lost'}">❤</span>`).join('');
 }
 function boardUpdate() {
   headUpdate();

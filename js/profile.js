@@ -6,9 +6,11 @@ const SHIPS = [
   { id: 'classic', name: 'Classic', color: null, shape: 'delta', cost: 0 },
   { id: 'dart', name: 'Neon Dart', color: '#ff5fd2', shape: 'dart', cost: 80 },
   { id: 'twin', name: 'Gold Twin', color: '#ffd166', shape: 'twin', cost: 150 },
-  { id: 'ghost', name: 'Ghost Wing', color: '#cfe0ff', shape: 'delta', cost: 220 }
+  { id: 'ghost', name: 'Ghost Wing', color: '#cfe0ff', shape: 'delta', cost: 220 },
+  { id: 'void', name: 'Void Runner', color: '#a06bff', shape: 'dart', cost: 280 },
+  { id: 'phoenix', name: 'Phoenix', color: '#ff7a3d', shape: 'twin', cost: 360 }
 ];
-const FRAMES = [{ id: 'none', name: 'No frame', cost: 0 }, { id: 'gold', name: 'Gold ring', cost: 80 }, { id: 'neon', name: 'Neon pulse', cost: 120 }, { id: 'fire', name: 'Flame ring', cost: 200 }];
+const FRAMES = [{ id: 'none', name: 'No frame', cost: 0 }, { id: 'gold', name: 'Gold ring', cost: 80 }, { id: 'neon', name: 'Neon pulse', cost: 120 }, { id: 'ice', name: 'Frost ring', cost: 150 }, { id: 'fire', name: 'Flame ring', cost: 200 }, { id: 'galaxy', name: 'Galaxy', cost: 260 }, { id: 'glitch', name: 'Glitch', cost: 320 }, { id: 'rainbow', name: 'Rainbow', cost: 400 }, { id: 'royal', name: 'Royal crown', cost: 500 }];
 const QUESTS = [
   { id: 'answer20', t: 'Answer 20 questions', ev: 'answer', n: 20, xp: 30, c: 15 }, { id: 'correct15', t: 'Get 15 correct answers', ev: 'correct', n: 15, xp: 35, c: 15 },
   { id: 'streak5', t: 'Reach a 5-answer streak', ev: 'streak', max: true, n: 5, xp: 40, c: 20 }, { id: 'quiz', t: 'Finish a quiz', ev: 'quiz', n: 1, xp: 25, c: 12 },
@@ -27,7 +29,7 @@ QB.me = () => { const a = getSet().avatar || { k: 'e', v: '🦊' }; return { ...
 QB.myName = () => (getSet().name || '').trim() || 'Player';
 QB.cleanAvatar = a => {
   if (!a || typeof a !== 'object') return { k: 'e', v: '🙂' };
-  const f = ['none', 'gold', 'neon', 'fire'].includes(a.f) ? a.f : 'none';
+  const f = ['none', 'gold', 'neon', 'fire', 'ice', 'galaxy', 'glitch', 'rainbow', 'royal'].includes(a.f) ? a.f : 'none';
   if (a.k === 'i' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(a.v || '') && a.v.length < 30000) return { k: 'i', v: a.v, f };
   return { k: 'e', v: String(a.v || '🙂').slice(0, 4), f };
 };
@@ -36,7 +38,7 @@ QB.avatar = (a, px = 40) => {
   return a.k === 'i' ? `<img class="av${fr}" src="${a.v}" alt="" width="${px}" height="${px}" style="width:${px}px;height:${px}px">`
     : `<span class="av${fr}" style="width:${px}px;height:${px}px;font-size:${Math.round(px * .58)}px">${esc(a.v)}</span>`;
 };
-const paintPf = () => { const b = $('#pf'); if (b) b.innerHTML = QB.avatar(QB.me(), 30); };
+const paintPf = () => { const b = $('#pf'); if (b) b.innerHTML = QB.avatar(QB.me(), 30); const h = $('#coinh b'); if (h) h.textContent = coins(); };
 QB.paintPf = paintPf;
 QB.heroUser = () => { const p = prog(); return `<div class="me">${QB.avatar(QB.me(), 54)}<div><b>${esc(QB.myName())}</b><small>Level ${lvl(p.xp)} · 🪙 <span data-count="${coins()}">${coins()}</span> coins</small></div><button class="btn ghost" id="pfb" style="margin-left:auto">Profile</button></div>`; };
 function fromFile(file, cb) {
@@ -68,42 +70,58 @@ function openProfile() {
 }
 document.addEventListener('click', e => { if (e.target.closest('#pf') || e.target.closest('#pfb')) openProfile(); });
 
-/* ---------- coins + quests ---------- */
-QB.addCoins = n => { store.set('qb_coins', coins() + n); const c = $('#coinv'); if (c) c.textContent = coins(); };
-function qstate() {
-  let s = store.get('qb_quest', null);
-  if (!s || s.date !== today()) {
-    let seed = [...today()].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 11); const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
-    s = { date: today(), ids: QUESTS.map(q => [rnd(), q.id]).sort((a, b) => a[0] - b[0]).slice(0, 3).map(x => x[1]), prog: {}, claimed: {} }; store.set('qb_quest', s);
-  }
+/* ---------- coins + quests (daily + weekly) ---------- */
+const WEEKLY = [
+  { id: 'w_answer150', t: 'Answer 150 questions this week', ev: 'answer', n: 150, xp: 150, c: 80 }, { id: 'w_boss3', t: 'Defeat 3 bosses this week', ev: 'bossWin', n: 3, xp: 200, c: 120 },
+  { id: 'w_quiz5', t: 'Finish 5 quizzes this week', ev: 'quiz', n: 5, xp: 120, c: 70 }, { id: 'w_race2', t: 'Finish 2 online games this week', ev: 'race', n: 2, xp: 160, c: 100 }, { id: 'w_cards40', t: 'Review 40 flashcards this week', ev: 'card', n: 40, xp: 100, c: 60 }
+];
+const weekKey = () => { const d = new Date(); const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return t.getUTCFullYear() + '-W' + Math.ceil(((t - y0) / 864e5 + 1) / 7); };
+const seeded = key => { let seed = [...key].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 11); return () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296; };
+const pickIds = (list, key, n) => { const rnd = seeded(key); return list.map(q => [rnd(), q.id]).sort((a, b) => a[0] - b[0]).slice(0, n).map(x => x[1]); };
+const COIN_FIX = n => { store.set('qb_coins', coins() + n); const c = $('#coinv'); if (c) c.textContent = coins(); const h = $('#coinh b'); if (h) { h.textContent = coins(); const p = h.parentElement; p.classList.remove('bump'); void p.offsetWidth; p.classList.add('bump'); } };
+QB.addCoins = n => { if (n) COIN_FIX(n); };
+function qstate(kind) {
+  const key = kind === 'w' ? 'qb_wq' : 'qb_quest', stamp = kind === 'w' ? weekKey() : today(), list = kind === 'w' ? WEEKLY : QUESTS;
+  let s = store.get(key, null);
+  if (!s || (s.date || s.week) !== stamp) { s = { [kind === 'w' ? 'week' : 'date']: stamp, ids: pickIds(list, stamp, kind === 'w' ? 2 : 3), prog: {}, claimed: {} }; store.set(key, s); }
   return s;
 }
 QB.ev = (name, n = 1) => {
   if (name === 'correct') QB.addCoins(1);
-  const s = qstate(); let ch = false;
-  s.ids.forEach(id => {
-    const q = QUESTS.find(x => x.id === id); if (q.ev !== name) return;
-    const b = s.prog[id] || 0, v = Math.min(q.max ? Math.max(b, n) : b + n, q.n);
-    if (v !== b) { s.prog[id] = v; ch = true; if (b < q.n && v >= q.n) { toast('✅ Quest complete: ' + q.t); FX.sfx('level'); } }
+  [['d', QUESTS, 'qb_quest'], ['w', WEEKLY, 'qb_wq']].forEach(([k, list, key]) => {
+    const s = qstate(k); let ch = false;
+    s.ids.forEach(id => {
+      const q = list.find(x => x.id === id); if (!q || q.ev !== name) return;
+      const b = s.prog[id] || 0, v = Math.min(q.max ? Math.max(b, n) : b + n, q.n);
+      if (v !== b) { s.prog[id] = v; ch = true; if (b < q.n && v >= q.n) { toast('✅ ' + (k === 'w' ? 'Weekly' : 'Daily') + ' quest complete: ' + q.t); FX.sfx('level'); } }
+    });
+    if (ch) store.set(key, s);
   });
-  if (ch) store.set('qb_quest', s);
 };
 QB.arenaBar = () => `<div class="stats" style="margin:0 0 18px"><span class="pill">🪙 <b id="coinv">${coins()}</b> coins</span><button class="btn ghost" id="shopb">🛍️ Shop</button><button class="btn ghost" id="pfb">${QB.avatar(QB.me(), 22)} Profile</button></div>`;
-QB.questsHtml = () => {
-  const s = qstate();
-  return `<div class="panel quests"><h2 style="font-size:1.3rem">Daily quests</h2><p class="sub" style="margin-bottom:12px">Fresh every day. Claim rewards for XP and coins.</p>${s.ids.map(id => {
-    const q = QUESTS.find(x => x.id === id), p = s.prog[id] || 0, done = p >= q.n, got = s.claimed[id];
+const questBlock = (kind, title, sub) => {
+  const s = qstate(kind), list = kind === 'w' ? WEEKLY : QUESTS;
+  return `<div class="panel quests"><h2 style="font-size:1.3rem">${title}</h2><p class="sub" style="margin-bottom:12px">${sub}</p>${s.ids.map(id => {
+    const q = list.find(x => x.id === id), p = s.prog[id] || 0, done = p >= q.n, got = s.claimed[id];
     return `<div class="qrow ${done ? 'done' : ''}"><div class="grow"><b>${esc(q.t)}</b><div class="mini"><i style="width:${p / q.n * 100}%"></i></div><small>${p}/${q.n} · reward ${q.xp} XP + ${q.c} 🪙</small></div>
-    <button class="btn ${done && !got ? '' : 'ghost'}" data-claim="${id}" ${done && !got ? '' : 'disabled'}>${got ? 'Claimed' : done ? 'Claim' : 'In progress'}</button></div>`;
+    <button class="btn ${done && !got ? '' : 'ghost'}" data-claim="${kind}:${id}" ${done && !got ? '' : 'disabled'}>${got ? 'Claimed' : done ? 'Claim' : 'In progress'}</button></div>`;
   }).join('')}</div>`;
 };
+QB.questsHtml = () => `<div class="two">${questBlock('d', 'Daily quests', 'Fresh every day. Claim rewards for XP and coins.')}${questBlock('w', 'Weekly quests', 'Bigger goals, bigger rewards. Resets every Monday.')}</div>`;
 QB.bindQuests = () => {
   const sb = $('#shopb'); if (sb) sb.onclick = openShop;
   app.querySelectorAll('[data-claim]').forEach(b => b.onclick = () => {
-    const s = qstate(), q = QUESTS.find(x => x.id === b.dataset.claim); if (s.claimed[q.id] || (s.prog[q.id] || 0) < q.n) return;
-    s.claimed[q.id] = 1; store.set('qb_quest', s); QB.addXP(q.xp); QB.addCoins(q.c); FX.sfx('claim'); FX.confetti(); toast(`+${q.xp} XP, +${q.c} coins`); QB.go('arena');
+    const [k, id] = b.dataset.claim.split(':'), s = qstate(k), q = (k === 'w' ? WEEKLY : QUESTS).find(x => x.id === id); if (!q || s.claimed[id] || (s.prog[id] || 0) < q.n) return;
+    s.claimed[id] = 1; store.set(k === 'w' ? 'qb_wq' : 'qb_quest', s); QB.addXP(q.xp); QB.addCoins(q.c); FX.sfx('claim'); FX.confetti(); toast(`+${q.xp} XP, +${q.c} coins`); QB.go('arena');
   });
 };
+/* daily login bonus (grows with your streak) */
+(() => {
+  const dl = store.get('qb_login', { d: '', n: 0 }), t = today(); if (dl.d === t) return;
+  const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10), n = dl.d === y ? dl.n + 1 : 1, extra = { 3: 50, 7: 150, 14: 300, 30: 600 }[n] || 0, bonus = 10 + Math.min(n, 7) * 5 + extra;
+  store.set('qb_login', { d: t, n }); setTimeout(() => { QB.addCoins(bonus); toast(`🎁 Daily bonus: +${bonus} coins (day ${n} in a row${extra ? ', milestone!' : ''})`); FX.sfx('coin'); }, 1200);
+})();
+QB.earnHtml = () => `<h3 style="margin:14px 0 6px">Ways to earn coins</h3><ul class="earn"><li>🎁 Daily login bonus, bigger every day in a row</li><li>✅ Claim daily and weekly quests</li><li>🎯 +1 per correct answer, +8 to +20 per finished quiz</li><li>💯 +30 for a perfect score, +20 for the daily challenge</li><li>👑 +40 for beating a boss, +60 the first time for each boss</li><li>🏅 +25 for every badge, +10 × level when you level up</li><li>🧠 +20 for every 10 questions mastered</li><li>📦 Mystery chest every 50 answers</li><li>🌐 +10 to +30 for online games</li></ul>`;
 
 /* ---------- shop ---------- */
 QB.skin = () => SHIPS.find(s => s.id === eq().ship) || SHIPS[0];
@@ -115,7 +133,7 @@ function openShop() {
     modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><h2>🛍️ Shop</h2><p class="sub">You have 🪙 <b>${coins()}</b>. Earn coins by answering, finishing quizzes, claiming quests and beating bosses.</p>
     <h3 style="margin:10px 0 4px">Ship skins (Boss Arena)</h3>${SHIPS.map(s => row('ship', s)).join('')}
     <h3 style="margin:14px 0 4px">Avatar frames</h3>${FRAMES.map(f => row('frame', f)).join('')}
-    <div class="acts"><button class="btn" id="ok">Done</button></div></div>`;
+    ${QB.earnHtml()}<div class="acts"><button class="btn" id="ok">Done</button></div></div>`;
     modal.querySelectorAll('[data-b]').forEach(b => b.onclick = () => {
       const [kind, id] = b.dataset.b.split(':'), list = kind === 'ship' ? SHIPS : FRAMES, it = list.find(x => x.id === id), o2 = own();
       if (!o2[kind].includes(id)) { if (coins() < it.cost) { toast('Not enough coins yet.'); FX.sfx('bad'); return; } store.set('qb_coins', coins() - it.cost); const raw = store.get('qb_own', {}); raw[kind] = [...(raw[kind] || []), id]; store.set('qb_own', raw); FX.sfx('coin'); }
@@ -130,7 +148,7 @@ QB.openShop = openShop;
 /* ---------- boss trophies ---------- */
 QB.bossRecord = (boss, won, score) => {
   if (!boss) return; const r = store.get('qb_boss', {}), k = boss.name, c = r[k] || { w: 0, b: 0, p: 0 };
-  c.p++; if (won) c.w++; c.b = Math.max(c.b, score || 0); r[k] = c; store.set('qb_boss', r);
+  c.p++; if (won) { c.w++; if (c.w === 1) { QB.addCoins(60); toast('👑 First victory over ' + boss.name + '! +60 coins'); } } c.b = Math.max(c.b, score || 0); r[k] = c; store.set('qb_boss', r);
 };
 paintPf();
 })();

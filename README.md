@@ -1,4 +1,4 @@
-# MyBadQuiz - Exam Reviewer v1.5
+# MyBadQuiz - Exam Reviewer v1.6
 A new collection of quizzes!
 
 This website is for educational purposes only.
@@ -35,6 +35,15 @@ Adds a new logo and favicon, an About page that explains it is for educational u
 - **Profile:** emoji avatars or upload your own photo, display name, avatar frames.
 - **Gamified arena:** daily quests, coins, shop (ship skins and frames), boss records.
 - **Overall:** mastery bars on subject cards, suggested-next banner, count-up numbers, button ripple, haptics on mobile, particle caps and tab-hidden pausing for performance.
+
+## v1.6
+- **Boss battles rebuilt:** 8 hand-drawn animated boss designs (eye, kraken, golem, drake, robot, ghost, skull, hive) instead of emoji. Solo fights now play in a 3D-style scene with a perspective neon floor, planet, ridge line, boss attacks you can see coming (telegraph, volley, shield impacts), lock-on reticle, shockwaves, hit-stop, rage phases and a proper death sequence. The co-op raid has an animated boss that reacts to the team.
+- **Background:** new smooth engine with drifting glow orbs, mouse parallax and fading data packets; throttled when the tab is hidden.
+- **Many subjects, less clutter:** subject dropdown with Select all / Clear, subject filter on the home page, History split into Overview / Mastery map / Badges / Attempts tabs with a subject filter, mastery overview with one-subject drill-down, Library with dropdown filters and "show more".
+- **Notifications:** stacked and queued, so badge, level-up and quest messages never overlap.
+- **Economy:** 5 new avatar frames (9 total), 2 new ship skins, daily login bonus, weekly quests, coins for badges, level-ups, mastery milestones, perfect scores, first boss wins and mystery chests.
+- **APIs:** Wikipedia "Learn more", Web Speech read-aloud, Web Share for score cards, Screen Wake Lock, Fullscreen, PWA (installable, offline).
+- **Bug fixes:** overlapping toasts; sound spam when several events fire together; reset now clears everything; backups now include coins, shop items, quests and records; leaving an online game asks for confirmation; timed quizzes pause when you switch tabs; boss intro no longer rebuilds the DOM every frame; friendlier error handling.
 
 ## What's inside
 

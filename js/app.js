@@ -67,8 +67,8 @@ function addXP(n) {
   const p = prog(), before = lvl(p.xp), day = new Date().toDateString();
   p.xp += n; if (!p.days.includes(day)) p.days = [...p.days, day].slice(-90);
   store.set('qb_prog', p);
-  if (lvl(p.xp) > before) { toast('⬆ Level ' + lvl(p.xp) + ' reached! +' + lvl(p.xp) * 10 + ' coins'); QB.addCoins(lvl(p.xp) * 10); FX.sfx('level'); }
-  checkBadges();
+  if (lvl(p.xp) > before) { toast('⬆ Level ' + lvl(p.xp) + ' reached! +' + lvl(p.xp) * 10 + ' coins'); FX.banner('LEVEL UP!', 'You reached level ' + lvl(p.xp)); FX.confetti(); QB.addCoins(lvl(p.xp) * 10); FX.sfx('level'); }
+  checkBadges(); if (QB.paintPf) QB.paintPf();
 }
 function award(k) { const p = prog(); if (p.badges.includes(k)) return; p.badges.push(k); store.set('qb_prog', p); toast(BADGES[k][0] + ' Badge unlocked: ' + BADGES[k][1] + ' (+25 coins)'); QB.addCoins(25); FX.sfx('level'); }
 const dayStreak = () => { const d = new Set(prog().days), t = new Date(); let n = 0; if (!d.has(t.toDateString())) t.setDate(t.getDate() - 1); while (d.has(t.toDateString())) { n++; t.setDate(t.getDate() - 1); } return n; };
@@ -97,39 +97,48 @@ function masteryMap(sid) {
 
 /* ---------- settings + palettes ---------- */
 const PAL = { circuit: ['#4fd1c5', '#0a1a24', '#10293a', '#12303f', '#25495a'], ember: ['#ff9f55', '#1a1210', '#2a1c17', '#2f201a', '#5a3a2e'], orchid: ['#c18cff', '#140f22', '#1f1833', '#251c3d', '#463668'], forest: ['#6ee7a0', '#0b1a14', '#10281d', '#13301f', '#27553c'] };
-const set = () => ({ pal: 'circuit', fx: true, vol: 1, size: 100, music: true, respect: false, name: '', ...store.get('qb_set', {}) });
+const set = () => ({ pal: 'circuit', fx: true, vol: 1, size: 100, music: true, respect: false, name: '', lb: false, safe: false, blockPics: false, scareOK: true, trail: true, ...store.get('qb_set', {}) });
+QB.settings = () => set(); QB.safeMode = () => !!set().safe;
 function applySet() {
   const s = set(), r = document.documentElement, p = PAL[s.pal] || PAL.circuit, dark = r.dataset.theme === 'dark';
   r.style.setProperty('--c', p[0]);
   ['--bg', '--bg2', '--card', '--bd'].forEach((k, i) => dark ? r.style.setProperty(k, p[i + 1]) : r.style.removeProperty(k));
   r.style.fontSize = s.size + '%'; r.dataset.fx = s.fx ? 'on' : 'off';
-  if (FX.setVol) FX.setVol(s.vol); if (FX.setCalm) FX.setCalm(!s.fx || (s.respect && matchMedia('(prefers-reduced-motion: reduce)').matches)); if (FX.setMusic) FX.setMusic(s.music);
+  if (FX.setVol) FX.setVol(s.vol); if (FX.setCalm) FX.setCalm(!s.fx || (s.respect && matchMedia('(prefers-reduced-motion: reduce)').matches)); if (FX.setMusic) FX.setMusic(s.music); if (FX.setTrail) FX.setTrail(s.trail !== false);
 }
-function openSettings() {
+const ST = { tab: 'general', taps: 0 };
+function openSettings(tab) {
+  if (typeof tab === 'string') ST.tab = tab;
   const paint = () => {
-    const s = set();
-    modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><h2>Settings</h2><p class="sub">Make it yours. Saved on this device.</p>
-    <div class="row"><label>Display name<small>Shown in races and on score cards</small></label><input class="search" id="nm2" style="margin:0;width:170px" maxlength="14" value="${esc(s.name || '')}" placeholder="Your name"></div>
+    const s = set(), secret = store.get('qb_secret', false); if (ST.tab === 'secret' && !secret) ST.tab = 'general';
+    const tabs = [['general', 'General'], ['online', 'Online & privacy'], ...(secret ? [['secret', '🤫 Secret']] : [])];
+    const general = `<div class="row"><label>Display name<small>Shown in races, boss raids and on score cards</small></label><input class="search" id="nm2" style="margin:0;width:170px" maxlength="14" value="${esc(s.name || '')}" placeholder="Your name"></div>
     <div class="row"><label>Color palette</label><div class="chips">${Object.keys(PAL).map(k => `<button class="chip ${s.pal === k ? 'on' : ''}" style="--c:${PAL[k][0]}" data-p="${k}">${k}</button>`).join('')}</div></div>
-    <div class="row"><label>Visual effects<small>Aurora, circuit packets, particles, tilt</small></label>${sw('fx', s.fx)}</div>
+    <div class="row"><label>Visual effects<small>Background, particles, tilt, ripples</small></label>${sw('fx', s.fx)}</div>
+    <div class="row"><label>Cursor sparkle trail</label>${sw('trail', s.trail !== false)}</div>
     <div class="row"><label>Game music<small>Battle and race soundtrack</small></label>${sw('music', s.music)}</div>
     <div class="row"><label>Follow system reduce-motion<small>Off by default. Turn on if animations bother you</small></label>${sw('respect', s.respect)}</div>
     <div class="row"><label>Sound volume</label><input type="range" id="vol" min="0" max="1" step=".1" value="${s.vol}"></div>
     <div class="row"><label>Text size</label><div class="chips">${[90, 100, 115, 130].map(n => `<button class="chip ${s.size === n ? 'on' : ''}" data-z="${n}">${n}%</button>`).join('')}</div></div>
     <div class="row"><label>Install as an app<small>Works offline for studying (multiplayer needs internet)</small></label><button class="btn ghost" id="inst">Install</button></div>
-    <div class="row"><label>Reset all data<small>History, XP, mastery, saved questions</small></label><button class="btn ghost" id="rst">Reset</button></div>
-    <div class="acts"><button class="btn" id="ok">Done</button></div></div>`;
+    <div class="row"><label>Reset all data<small>History, XP, mastery, saved questions, coins</small></label><button class="btn ghost" id="rst">Reset</button></div>`;
+    const online = `<p class="sub">Controls what other players can do to you and see about you.</p>
+    <div class="row"><label>Show my stats on the leaderboard<small>Name, level, XP, wins, mastery. Off by default.</small></label>${sw('lb', s.lb)}</div>
+    <div class="row"><label>Safe mode<small>No flashbangs, screen shaking, jumpscares or loud scare sounds</small></label>${sw('safe', s.safe)}</div>
+    <div class="row"><label>Allow jumpscares to hit me</label>${sw('scareOK', s.scareOK !== false)}</div>
+    <div class="row"><label>Block pictures from other players<small>Jumpscares then use a generated face instead of their uploads</small></label>${sw('blockPics', s.blockPics)}</div>`;
+    modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><h2 id="sth" title="Settings">Settings</h2><div class="subtabs" style="margin-bottom:12px">${tabs.map(([k, t]) => `<button class="${ST.tab === k ? 'on' : ''}" data-st="${k}">${t}</button>`).join('')}</div>${ST.tab === 'general' ? general : ST.tab === 'online' ? online : (QB.secretHtml ? QB.secretHtml() : '')}<div class="acts"><button class="btn" id="ok">Done</button></div></div>`;
     const up = o => { store.set('qb_set', { ...set(), ...o }); applySet(); paint(); };
+    modal.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { ST.tab = b.dataset.st; paint(); });
+    modal.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { const k = b.dataset.sw, cur = k === 'scareOK' || k === 'trail' ? s[k] !== false : !!s[k]; up({ [k]: !cur }); if (k === 'lb' && QB.lbToggle) QB.lbToggle(!cur); });
     modal.querySelectorAll('[data-p]').forEach(b => b.onclick = () => up({ pal: b.dataset.p }));
     modal.querySelectorAll('[data-z]').forEach(b => b.onclick = () => up({ size: +b.dataset.z }));
-    $('[data-sw=fx]').onclick = () => up({ fx: !set().fx });
-    $('[data-sw=music]').onclick = () => up({ music: !set().music });
-    $('[data-sw=respect]').onclick = () => up({ respect: !set().respect });
-    $('#nm2').onchange = e => up({ name: e.target.value.trim().slice(0, 14) });
-    $('#vol').oninput = e => { store.set('qb_set', { ...set(), vol: +e.target.value }); applySet(); };
-    $('#vol').onchange = () => FX.sfx('ok');
-    $('#rst').onclick = () => { if (confirm('Erase ALL MyBadQuiz data on this device?')) { Object.keys(localStorage).filter(k => k.startsWith('qb_')).forEach(k => localStorage.removeItem(k)); toast('Data reset. Reloading…'); setTimeout(() => location.reload(), 600); } };
-    $('#inst').onclick = () => QB.install && QB.install();
+    const nm = $('#nm2'); if (nm) nm.onchange = e => { up({ name: e.target.value.trim().slice(0, 14) }); if (QB.paintPf) QB.paintPf(); };
+    const vol = $('#vol'); if (vol) { vol.oninput = e => { store.set('qb_set', { ...set(), vol: +e.target.value }); applySet(); }; vol.onchange = () => FX.sfx('ok'); }
+    const rst = $('#rst'); if (rst) rst.onclick = () => { if (confirm('Erase ALL MyBadQuiz data on this device?')) { Object.keys(localStorage).filter(k => k.startsWith('qb_')).forEach(k => localStorage.removeItem(k)); toast('Data reset. Reloading…'); setTimeout(() => location.reload(), 600); } };
+    const inst = $('#inst'); if (inst) inst.onclick = () => QB.install && QB.install();
+    $('#sth').onclick = () => { if (secret) return; if (++ST.taps >= 5) { store.set('qb_secret', true); toast('🤫 You found the secret tab!'); FX.sfx('level'); ST.tab = 'secret'; paint(); } };
+    if (ST.tab === 'secret' && QB.secretBind) QB.secretBind();
     $('#ok').onclick = close;
   };
   modal.hidden = false; paint();
@@ -138,7 +147,7 @@ function openSettings() {
 /* ---------- command palette (Ctrl+K or /) ---------- */
 function palette() {
   const cmds = [
-    ...['subjects', 'practice', 'arena', 'cards', 'library', 'history', 'about'].map(t => ({ n: 'Go to ' + t, f: () => go(t) })),
+    ...['subjects', 'practice', 'arena', 'cards', 'library', 'history', 'ranks', 'about'].map(t => ({ n: 'Go to ' + t, f: () => go(t) })),
     ...SUBJ.map(s => ({ n: 'Quiz: ' + s.title, f: () => setup([s.id], 'quiz') })),
     ...SUBJ.map(s => ({ n: 'Boss battle: ' + s.title, f: () => startBoss([s.id]) })),
     { n: 'Daily challenge', f: startDaily }, { n: 'Online race', f: () => QB.versus() }, { n: 'Weak spots review', f: startWeak }, { n: 'Survival mode', f: () => startSurvival(SUBJ.map(s => s.id)) },
@@ -264,7 +273,7 @@ function go(t) {
   if (((Q && !Q.done) || (QB.busy && QB.busy())) && !confirm('Leave the current session? Your progress will be lost.')) return;
   stop(); Q = null; FC = null;
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  const view = ({ subjects: viewSubjects, practice: viewPractice, arena: viewArena, cards: viewCards, library: viewLibrary, history: viewHistory, about: () => QB.viewAbout() })[t];
+  const view = ({ subjects: viewSubjects, practice: viewPractice, arena: viewArena, cards: viewCards, library: viewLibrary, history: viewHistory, ranks: () => QB.viewRanks(), about: () => QB.viewAbout() })[t];
   if (document.startViewTransition && document.documentElement.dataset.fx !== 'off') { try { document.startViewTransition(view); } catch (e) { view(); } } else view();
   scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -448,6 +457,7 @@ function importAll(d) {
   const o = prog(), n = src.qb_prog || {}; store.set('qb_prog', { xp: Math.max(o.xp, n.xp || 0), days: [...new Set([...o.days, ...(n.days || [])])], badges: [...new Set([...o.badges, ...(n.badges || [])])] });
   const mm = mas(), nm = src.qb_mas || {}; Object.keys(nm).forEach(k => { if (!mm[k] || nm[k].s > mm[k].s) mm[k] = nm[k]; }); store.set('qb_mas', mm);
   const st = stats(), ns = src.qb_stats; if (ns) { const d2 = { ...ns.d }; Object.keys(st.d).forEach(k => d2[k] = Math.max(d2[k] || 0, st.d[k])); store.set('qb_stats', { t: Math.max(st.t, ns.t || 0), c: Math.max(st.c, ns.c || 0), d: d2 }); }
+  if (src.qb_rw != null) store.set('qb_rw', Math.max(store.get('qb_rw', 0), src.qb_rw));
   if (src.qb_coins != null) store.set('qb_coins', Math.max(store.get('qb_coins', 0), src.qb_coins));
   if (src.qb_own) { const lo = store.get('qb_own', {}); store.set('qb_own', { ship: [...new Set([...(lo.ship || []), ...(src.qb_own.ship || [])])], frame: [...new Set([...(lo.frame || []), ...(src.qb_own.frame || [])])] }); }
   if (src.qb_boss) { const lb = store.get('qb_boss', {}); Object.keys(src.qb_boss).forEach(k => { const a = lb[k] || { w: 0, b: 0, p: 0 }, b = src.qb_boss[k]; lb[k] = { w: Math.max(a.w, b.w), b: Math.max(a.b, b.b), p: Math.max(a.p, b.p) }; }); store.set('qb_boss', lb); }
@@ -534,7 +544,7 @@ function renderQ() {
     : surv ? `<div class="hud ${fx === 'hurt' ? 'hurt' : ''}"><b>Survival · score ${Q.ok}</b><div class="hearts">${hearts(Q.lives, 3)}</div></div>` : '';
   const metaTxt = plain ? `Question ${Q.idx + 1} of ${n} · ${answered} answered` : `${boss ? 'Round ' + (Q.seen + (lock ? 0 : 1)) + ' · ' : ''}Streak <b>${Q.streak >= 3 ? '<span class="flame">🔥</span>' : ''}${Q.streak}</b> · Best <b>${Q.best}</b> · ${Q.ok}/${Q.seen}`;
   const ffOff = lock || a != null || Q.gone[Q.idx] || (!inf && Q.ff <= 0);
-  app.innerHTML = `<div class="quiz" style="--c:${s.color}">${hud}
+  app.innerHTML = `<div class="quiz ${Q.streak >= 5 ? 'hot' : ''}" style="--c:${s.color}">${hud}
   <div class="qtop"><span class="meta">${metaTxt}</span>
   <span style="display:flex;gap:8px;align-items:center">${plain && Q.o.time ? '<button class="btn ghost" id="pz" style="padding:6px 12px" aria-label="Pause">⏸</button>' : ''}${plain && Q.o.time ? `<span class="timer ${Q.left <= 60 ? 'warn' : ''}" id="tm">${fmt(Math.max(Q.left, 0))}</span>` : ''}</span></div>
   ${plain ? `<div class="bar"><i style="width:${(Q.idx / n) * 100}%" id="pb"></i></div>` : ''}
@@ -575,7 +585,7 @@ function pick(p) {
   inst ? FX.sfx(ok ? 'ok' : 'bad') : FX.sfx('click');
   addXP(ok ? 10 : 2); QB.ev('answer'); if (ok) QB.ev('correct'); QB.ev('streak', Q.streak);
   renderQ();
-  const el = $('.opt.ok'); if (ok && el && inst) { const r = el.getBoundingClientRect(); FX.burst(r.left + 40, r.top + r.height / 2); }
+  const el = $('.opt.ok'); if (ok && el && inst) { const r = el.getBoundingClientRect(); FX.burst(r.left + 40, r.top + r.height / 2); FX.floatText('+10 XP', r.right - 70, r.top + 4); }
   if (Q.mode !== 'quiz' && ok && Q.streak % 5 === 0) { FX.sfx('level'); toast('🔥 ' + Q.streak + ' in a row!'); FX.confetti(); }
   if (surv && Q.ok >= 15) award('survive');
   if ((boss && (Q.bhp <= 0 || Q.lives <= 0)) || (surv && Q.lives <= 0)) return void setTimeout(() => { if (Q && !Q.done) finish(); }, 1400);
@@ -610,7 +620,7 @@ function finish() {
   const secs = Math.round((Date.now() - Q.t0) / 1000), mixed = Q.ids.length > 1, s = sub(Q.ids[0]), won = boss && Q.bhp <= 0;
   const title = boss ? 'Boss · ' + Q.boss.name : Q.title || (mixed ? 'Mega Mix' : s.title);
   const heading = boss ? (won ? 'Victory!' : 'Defeated') : Q.mode === 'survival' ? 'Run over' : Q.mode === 'practice' ? 'Practice summary' : 'Quiz complete';
-  if (Q.mode !== 'practice' && rows.length) {
+  if (Q.mode !== 'practice' && rows.length && !(boss && QB.nixe())) {
     const h = [{ sid: mixed ? 'mix' : s.id, title: (Q.pool && !Q.daily ? 'Retry · ' : '') + title, score, total, pct, secs, date: Date.now() }, ...hist()].slice(0, 100);
     QB.ev('quiz'); if (Q.mode === 'quiz' && total >= 10 && pct >= 80) QB.ev('quiz80'); QB.addCoins(pct >= 80 ? 20 : 8);
     store.set('qb_history', h); award('first'); if (h.length >= 5) award('five');
@@ -620,7 +630,7 @@ function finish() {
     if (boss) { QB.bossRecord(Q.boss, won, Q.score); if (won) QB.ev('bossWin'); QB.addCoins(won ? 40 : 5); }
     if (Q.daily) { store.set('qb_daily', { date: new Date().toDateString(), score, total }); award('daily'); QB.addCoins(20); }
     if (Q.mode === 'survival' && Q.ok > store.get('qb_hi', 0)) { store.set('qb_hi', Q.ok); toast('🏆 New survival record: ' + Q.ok); }
-    addXP(boss ? (won ? 80 : 10) : pct >= 90 ? 50 : pct >= 70 ? 25 : 10);
+    addXP(boss ? (won ? 80 : 10) : pct >= 90 ? 50 : pct >= 70 ? 25 : 10); if (QB.lbPush) QB.lbPush();
   }
   if (masteredCount() >= 20) award('map');
   (boss ? won : pct >= 60) ? FX.sfx('win') : FX.sfx('lose'); if (boss ? won : pct >= 80) FX.confetti();
@@ -672,7 +682,7 @@ document.addEventListener('keydown', e => {
 });
 
 Object.defineProperties(QB, { Q: { get: () => Q, set: v => { Q = v; } }, cfg: { get: () => cfg } });
-Object.assign(QB, { viewSubjects, O, $, esc, shuf, store, fmt, L, SUBJ, sub, bank, allQ, toast, addXP, award, track, app, modal, close, sw, subjChips, go, start, stop, finish, lvl, prog, mlevel, mas, stats, FX, BADGES, hist, dayStreak });
+Object.assign(QB, { masteredCount, viewSubjects, O, $, esc, shuf, store, fmt, L, SUBJ, sub, bank, allQ, toast, addXP, award, track, app, modal, close, sw, subjChips, go, start, stop, finish, lvl, prog, mlevel, mas, stats, FX, BADGES, hist, dayStreak });
 $('#cfg').onclick = openSettings; $('#kb').onclick = palette;
 applySet();
 })();

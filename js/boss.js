@@ -3,6 +3,7 @@
    Combos boost damage, answering fast adds bonus damage, the boss gets angrier in phases. */
 (() => {
 const { $, esc, shuf, app, FX, sub, bank, store, toast, SUBJ, modal, close, subjChips } = QB;
+const nx = () => !!(QB.nixe && QB.nixe());
 const clampN = v => Math.max(-1, Math.min(1, v));
 const DIFF = {
   easy:   { hp: 12, hearts: 6, fall: 18, name: 'Easy' },
@@ -84,7 +85,7 @@ QB.bossGame = function (ids, diff, bdef) {
     $('#bh').style.width = Math.max(Q.bhp, 0) / Q.bmax * 100 + '%'; $('#sc').textContent = Q.score; $('#hr').innerHTML = hr();
     const m = Q.streak >= 6 ? 3 : Q.streak >= 3 ? 2 : 1; $('#cb').textContent = 'x' + m + (Q.streak ? ' · ' + Q.streak + '🔥' : '');
     $('#ch').style.width = Math.min(g.charge, 5) / 5 * 100 + '%'; $('#ch').parentElement.classList.toggle('full', g.charge >= 5);
-    $('#bul').disabled = g.charge < 5 || g.state !== 'play'; $('#b50').disabled = g.f50 <= 0 || g.state !== 'play'; $('#bfz').disabled = g.ffz <= 0 || g.state !== 'play' || g.fz > 0;
+    $('#bul').disabled = (g.charge < 5 && !nx()) || g.state !== 'play'; $('#b50').disabled = g.f50 <= 0 || g.state !== 'play'; $('#bfz').disabled = g.ffz <= 0 || g.state !== 'play' || g.fz > 0;
     $('#n50').textContent = '(' + g.f50 + ')'; $('#nfz').textContent = '(' + g.ffz + ')';
   };
   const say = (txt, x, y, col) => { const e = document.createElement('span'); e.textContent = txt; e.style.cssText = `left:${x}px;top:${y}px;color:${col || '#fff'}`; $('#fl').append(e); setTimeout(() => e.remove(), 1100); };
@@ -133,7 +134,7 @@ QB.bossGame = function (ids, diff, bdef) {
       say('-' + dmg + (quick ? ' QUICK!' : mult > 1 ? ' COMBO!' : ''), px.x, px.y, '#3ddc97'); FX.sfx('laser'); setTimeout(() => FX.sfx('boom'), 120);
       if (Q.streak === 3 || Q.streak === 6) say('COMBO x' + mult, g.W / 2, g.H / 2, acc);
     } else {
-      Q.streak = 0; Q.lives--; Q.flawless = false; g.red = .6; g.shake = 14; FX.haptic([40, 30, 40]);
+      Q.streak = 0; if (!nx()) Q.lives--; Q.flawless = false; g.red = .6; g.shake = 14; FX.haptic([40, 30, 40]);
       volley(true);
       if (p >= 0) boom(px.x, px.y, 16, RC); say(p === -1 ? 'TOO SLOW!' : 'WRONG!', g.W / 2, g.H / 2, '#ff6b6b'); FX.sfx('hurt');
     }
@@ -146,17 +147,17 @@ QB.bossGame = function (ids, diff, bdef) {
   }
   function addXPq(ok) { QB.addXP(ok ? 10 : 2); }
   function ult() {
-    if (g.state !== 'play' || g.charge < 5 || g.paused) return;
+    if (g.state !== 'play' || (g.charge < 5 && !nx()) || g.paused) return;
     g.charge = 0; Q.usedUlt = true; QB.award('ultimate'); Q.bhp = Math.max(0, Q.bhp - 3); Q.score += 300;
     g.beams.push({ x1: g.sx, y1: g.H - 40, x2: g.bx, y2: g.by, l: 1.6, c: '#ffffff', w: 26 }); g.beams.push({ x1: g.sx, y1: g.H - 40, x2: g.bx, y2: g.by, l: 1.6, c: acc, w: 44 });
     g.flash = .8; g.shake = 16; boom(g.bx, g.by, 60, PC); say('ULTIMATE  -3', g.W / 2, g.H * .35, '#fff'); FX.sfx('ult'); hud();
     if (Q.bhp <= 0) { g.state = 'won'; g.wait = 2.2; g.dead = 1; g.pods.forEach(o => o.el.classList.add('dim')); setTimeout(() => { FX.sfx('boom'); boom(g.bx, g.by, 80, ['#ffffff', '#ffb347', '#ff6b6b', acc]); }, 400); }
   }
-  function freeze() { if (g.state !== 'play' || g.ffz <= 0 || g.fz > 0 || g.paused) return; g.ffz--; g.fz = 4; stg.classList.add('frost'); FX.sfx('freeze'); say('TIME FREEZE', g.W / 2, g.H * .45, '#9fe8ff'); hud(); }
+  function freeze() { if (g.state !== 'play' || g.ffz <= 0 || g.fz > 0 || g.paused) return; if (!nx()) g.ffz--; g.fz = 4; stg.classList.add('frost'); FX.sfx('freeze'); say('TIME FREEZE', g.W / 2, g.H * .45, '#9fe8ff'); hud(); }
   function fifty() {
     if (g.state !== 'play' || g.f50 <= 0 || g.paused) return;
     const wrong = g.q.ord.map((oi, p) => oi === g.q.a ? -1 : p).filter(p => p >= 0 && !g.pods[p].dead); if (wrong.length < 2) return;
-    g.f50--; shuf(wrong).slice(0, 2).forEach(p => { const c = podCenter(p); g.pods[p].dead = true; g.pods[p].el.classList.add('gone'); boom(c.x, c.y, 14, RC); }); FX.sfx('boom'); hud();
+    if (!nx()) g.f50--; shuf(wrong).slice(0, 2).forEach(p => { const c = podCenter(p); g.pods[p].dead = true; g.pods[p].el.classList.add('gone'); boom(c.x, c.y, 14, RC); }); FX.sfx('boom'); hud();
   }
   function pause() {
     if (g.state === 'intro' || g.state === 'won' || g.state === 'lost') return;
@@ -275,6 +276,7 @@ QB.bossGame = function (ids, diff, bdef) {
     if (g.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${g.flash * .7})`; ctx.fillRect(-20, -20, W + 40, H + 40); }
     ctx.restore();
   }
+  if (nx()) toast('✨ MyBadQuiz mode: unlimited lives, ultimate and power-ups. This fight will not be recorded.');
   (function loop(now) {
     if (g.off || G !== g) return; requestAnimationFrame(loop);
     if (document.hidden) { g.last = now; return; }

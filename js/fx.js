@@ -32,7 +32,11 @@ window.FX = (() => {
     coin: () => { tone(1320, 0, .08, 'square', .05); tone(1760, .07, .14, 'square', .05); },
     claim: () => [660, 880, 1100, 1320].forEach((f, i) => tone(f, i * .06, .18, 'triangle', .07)),
     equip: () => { tone(500, 0, .08, 'triangle', .07); tone(750, .06, .14, 'triangle', .07); },
-    freezeHit: () => { tone(900, 0, .3, 'sine', .07, 200); }
+    freezeHit: () => { tone(900, 0, .3, 'sine', .07, 200); },
+    flashbang: () => { noise(0, 1.3, .9, 100); tone(3200, 0, 2.4, 'sine', .2); tone(3170, .05, 2.4, 'sine', .14); tone(70, 0, .5, 'sine', .45, 30); },
+    scare: () => { noise(0, 1, .75, 300); tone(110, 0, 1.3, 'sawtooth', .38, 700); tone(1800, 0, 1, 'square', .16, 420); tone(900, .1, .9, 'sawtooth', .18, 1900); },
+    ad: () => { tone(300, 0, .18, 'sine', .12, 800); tone(800, .12, .15, 'triangle', .1, 400); },
+    pop: () => tone(700, 0, .07, 'sine', .08, 1100)
   };
   const lastS = {};
   let nb = null;
@@ -87,7 +91,7 @@ window.FX = (() => {
       x.clearRect(0, 0, c.width, c.height);
       P = P.filter(p => p.life > 0 && p.y < c.height + 30);
       for (const p of P) {
-        p.vy += p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= .009;
+        p.vy += p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= p.d || .009;
         x.globalAlpha = Math.max(p.life, 0); x.fillStyle = p.c;
         x.save(); x.translate(p.x, p.y); x.rotate(p.rot); x.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); x.restore();
       }
@@ -112,6 +116,14 @@ window.FX = (() => {
     if (!t) return; const r = t.getBoundingClientRect();
     t.style.setProperty('--rx', e.clientX - r.left + 'px'); t.style.setProperty('--ry', e.clientY - r.top + 'px');
     t.classList.remove('rip'); void t.offsetWidth; t.classList.add('rip'); setTimeout(() => t.classList.remove('rip'), 650);
+  }, { passive: true });
+  /* cursor sparkle trail */
+  let trailOn = true, lastTr = 0;
+  document.addEventListener('pointermove', e => {
+    if (!trailOn || calm || e.pointerType === 'touch' || document.hidden) return;
+    const n = performance.now(); if (n - lastTr < 40) return; lastTr = n;
+    P.push({ x: e.clientX, y: e.clientY, vx: (Math.random() - .5) * .8, vy: (Math.random() - .5) * .8 - .2, r: 2 + Math.random() * 2.5, c: Math.random() < .5 ? acc : '#ffffff', life: 1, rot: 0, vr: 0, g: .01, d: .035 });
+    if (P.length > 240) P.shift(); run();
   }, { passive: true });
   /* generic click sound + mute button */
   document.addEventListener('click', e => { if (e.target.closest('.btn,.chip,nav button,.sw,.card,#theme,.dots i')) FX.sfx('click'); });
@@ -156,6 +168,9 @@ window.FX = (() => {
   })(performance.now());
   return {
     setVol(v) { vol = v; }, setCalm(c) { calm = !!c; }, setMusic(b) { musicOn = b; if (!b) FX.music(false); },
+    setTrail(b) { trailOn = !!b; },
+    floatText(text, x, y, color) { if (calm) return; const e = document.createElement('span'); e.className = 'ft'; e.textContent = text; e.style.cssText = `left:${x}px;top:${y}px;color:${color || '#ffd166'}`; document.body.append(e); setTimeout(() => e.remove(), 1000); },
+    banner(title, sub) { const b = document.createElement('div'); b.className = 'banner'; b.innerHTML = `<b>${title}</b><small>${sub || ''}</small>`; document.body.append(b); setTimeout(() => b.remove(), 2100); },
     haptic(ms) { if (!calm && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } },
     count(el, to, ms = 700, fmtFn) {
       if (!el) return; if (calm) { el.textContent = fmtFn ? fmtFn(to) : to; return; }

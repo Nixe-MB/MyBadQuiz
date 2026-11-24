@@ -1,4 +1,4 @@
-# MyBadQuiz - Exam Reviewer v1.6
+# MyBadQuiz - Exam Reviewer v1.7
 A new collection of quizzes!
 
 This website is for educational purposes only.
@@ -45,16 +45,27 @@ Adds a new logo and favicon, an About page that explains it is for educational u
 - **APIs:** Wikipedia "Learn more", Web Speech read-aloud, Web Share for score cards, Screen Wake Lock, Fullscreen, PWA (installable, offline).
 - **Bug fixes:** overlapping toasts; sound spam when several events fire together; reset now clears everything; backups now include coins, shop items, quests and records; leaving an online game asks for confirmation; timed quizzes pause when you switch tabs; boss intro no longer rebuilds the DOM every frame; friendlier error handling.
 
+## v1.7
+- **Avatar frames redrawn as real artwork:** 17 animated vector frames around the avatar instead of colored circles, e.g. a spiral galaxy with nebulae and orbiting planets, living flames, angel wings, demon horns, ocean waves, sakura branch, circuit board, thunder storm, 8-bit pixels, frost crystals, enchanted vine, royal crown and more. Live previews in the profile and shop.
+- **Online:** new **🤪 Super Chaos** mode (wobbling screen, flashbangs with a loud bang and sometimes players' faces, pop-up ads with fake close buttons, intensity levels), new power-ups (😱 Jumpscare, 💥 Flashbang, 📢 Ad storm, 🌀 Dizzy), host-controlled jumpscare permission, and a pre-game lineup showing every player's picture during the countdown.
+- **Picture vault** for jumpscare images (unlimited, stored on your device), with random online image and generated-face fallbacks; the image is stretched over the whole screen.
+- **Ranks tab:** global leaderboard (optional Firebase setup) and a This-device board; sharing your stats is opt-in.
+- **Settings tabs:** General, Online & privacy (leaderboard sharing, Safe mode, jumpscare blocking, block pictures from others).
+- **Game feel:** XP ring and level badge on your avatar, floating +XP numbers, LEVEL UP banner with confetti, streak fire glow on quizzes, cursor sparkle trail.
+
+
 ## What's inside
 
-<img width="1876" height="1012" alt="image" src="https://github.com/user-attachments/assets/2f1494df-401f-421e-90b1-ba5e991f3f74" />
+<img width="1851" height="1012" alt="image" src="https://github.com/user-attachments/assets/07ec59a1-ba26-45db-b918-2c1572337bdb" />
 
-<img width="1868" height="1001" alt="image" src="https://github.com/user-attachments/assets/f990bcc7-490d-4a9c-8437-b698d8b87906" />
+<img width="1853" height="1011" alt="image" src="https://github.com/user-attachments/assets/562b6983-b428-4ac7-baea-cc5ff3fef2e0" />
 
-<img width="1862" height="1008" alt="image" src="https://github.com/user-attachments/assets/16ac2f5a-23b8-4dbf-9ca6-0c6866a2dd0f" />
+<img width="1853" height="1007" alt="image" src="https://github.com/user-attachments/assets/4b946d6e-a1e9-487a-80c9-e51b3aa6da6e" />
 
-<img width="1867" height="1008" alt="image" src="https://github.com/user-attachments/assets/d7aba7ef-8deb-4072-95d3-1f01e445e950" />
+<img width="1858" height="1006" alt="image" src="https://github.com/user-attachments/assets/c87dae42-c38a-496e-8fde-aa9bffd7ddee" />
 
-<img width="1867" height="1012" alt="image" src="https://github.com/user-attachments/assets/3a0b4744-9b18-47dc-9a8e-8315e508e9e0" />
+<img width="1873" height="1002" alt="image" src="https://github.com/user-attachments/assets/05732605-1539-46fd-b41a-8e9b0706ce5c" />
+
+<img width="1863" height="1000" alt="image" src="https://github.com/user-attachments/assets/d6350ca7-bd4f-4b80-9713-044162cc247b" />
 
 # THANKS AND GOODLUCK WITH YOUR EXAM
